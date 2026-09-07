@@ -15,6 +15,12 @@
             --accent-ca: #22c55e;
             --accent-atp: #eab308;
             --border-color: #334155;
+            
+            /* Dynamic Physics Handles managed via JavaScript */
+            --sarcomere-width: 80%;
+            --actin-displace: 0px;
+            --myosin-angle: 0deg;
+            --tropomyosin-color: #38bdf8;
         }
 
         * {
@@ -74,7 +80,8 @@
             gap: 16px;
         }
 
-        .canvas-wrapper {
+        /* Pure CSS Simulation Environment Viewport */
+        .simulation-viewport {
             position: relative;
             width: 100%;
             height: 400px;
@@ -82,14 +89,124 @@
             border-radius: 8px;
             overflow: hidden;
             border: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        canvas {
-            display: block;
+        /* Sarcomere structural architecture container */
+        .sarcomere-structure {
+            position: relative;
+            width: var(--sarcomere-width);
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: width 0.1s linear;
+        }
+
+        /* Z-Disc Lines */
+        .z-disc {
+            position: absolute;
+            width: 6px;
+            height: 100%;
+            background-color: #ef4444;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+            z-index: 10;
+        }
+        .z-disc.left { left: 0; }
+        .z-disc.right { right: 0; }
+        .z-disc-label {
+            position: absolute;
+            top: -20px;
+            left: -18px;
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        /* M-Line Center Anchor */
+        .m-line {
+            position: absolute;
+            width: 4px;
+            height: 70%;
+            background-color: rgba(255,255,255,0.15);
+            border-left: 2px dashed rgba(255,255,255,0.3);
+            z-index: 1;
+        }
+        .m-line-label {
+            position: absolute;
+            top: 25px;
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: bold;
+            font-family: monospace;
+            white-space: nowrap;
+        }
+
+        /* Myosin Thick Filament Center-Mass */
+        .thick-filament {
+            position: absolute;
+            width: 60%;
+            height: 16px;
+            background: linear-gradient(90deg, #1d4ed8, #3b82f6, #1d4ed8);
+            border-radius: 4px;
+            z-index: 2;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        /* Molecular Myosin Intercept Cross-Bridge Heads */
+        .myosin-heads-group {
+            position: absolute;
             width: 100%;
+            height: 140px;
+            display: flex;
+            justify-content: space-around;
+            pointer-events: none;
+        }
+        .myosin-head-pair {
+            position: relative;
+            width: 12px;
             height: 100%;
         }
+        .head-node {
+            position: absolute;
+            width: 8px;
+            height: 22px;
+            background-color: var(--accent-myosin);
+            border-radius: 4px;
+            transform-origin: center center;
+            transform: rotate(var(--myosin-angle));
+            transition: transform 0.05s linear;
+        }
+        .head-node.top { top: 10px; }
+        .head-node.bottom { bottom: 10px; }
 
+        /* Actin Thin Filaments strands connected to Z-Discs */
+        .thin-filaments-layer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .actin-strand {
+            position: absolute;
+            width: 45%;
+            height: 4px;
+            background-color: var(--accent-actin);
+            border-radius: 2px;
+            box-shadow: 0 0 4px rgba(244, 63, 94, 0.4);
+            border-bottom: 2px solid var(--tropomyosin-color);
+        }
+        .actin-strand.left-top { left: 6px; top: 48px; transform: translateX(var(--actin-displace)); }
+        .actin-strand.left-bottom { left: 6px; bottom: 48px; transform: translateX(var(--actin-displace)); }
+        .actin-strand.right-top { right: 6px; top: 48px; transform: translateX(calc(-1 * var(--actin-displace))); }
+        .actin-strand.right-bottom { right: 6px; bottom: 48px; transform: translateX(calc(-1 * var(--actin-displace))); }
+
+        /* Interface controls custom styles */
         .control-panel {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -134,7 +251,6 @@
             height: 16px;
             border-radius: 50%;
             cursor: pointer;
-            transition: transform 0.1s;
         }
 
         #calciumRange::-webkit-slider-thumb { background: var(--accent-ca); }
@@ -166,135 +282,4 @@
         .legend {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            font-size: 0.8rem;
-            border-top: 1px solid var(--border-color);
-            padding-top: 15px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .color-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 3px;
-            flex-shrink: 0;
-        }
-    </style>
-</head>
-<body>
-
-    <header>
-        <h1>Sarcomere Physiology & Kinematics</h1>
-        <p>High-fidelity medical visualization of the sliding filament mechanism and cross-bridge cycling dynamics.</p>
-    </header>
-
-    <div class="main-container">
-        <div class="simulation-pane">
-            <div class="canvas-wrapper" id="canvasWrapper">
-                <canvas id="simCanvas"></canvas>
-            </div>
-            
-            <div class="control-panel">
-                <div class="control-group">
-                    <label style="color: var(--accent-ca);">Sarcoplasmic [Ca²⁺] <span id="caVal" class="val">0%</span></label>
-                    <input type="range" id="calciumRange" min="0" max="100" value="0">
-                </div>
-                <div class="control-group">
-                    <label style="color: var(--accent-atp);">Intracellular [ATP] <span id="atpVal" class="val">50%</span></label>
-                    <input type="range" id="atpRange" min="0" max="100" value="50">
-                </div>
-            </div>
-        </div>
-
-        <div class="dashboard-pane">
-            <h2 style="font-size: 1.1rem; font-weight: 600;">Physiological Metrics</h2>
-            
-            <div id="stateBadge" class="status-badge">
-                <strong>Current State:</strong> Resting State (No interaction). Raise Calcium concentration to begin cross-bridge activation.
-            </div>
-
-            <div class="legend">
-                <div class="legend-item">
-                    <div class="color-dot" style="background: var(--accent-actin);"></div>
-                    <span>Thin Filament (Actin Helix / Tropomyosin Strand)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="color-dot" style="background: var(--accent-myosin);"></div>
-                    <span>Thick Filament (Myosin Bundle Core)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="color-dot" style="background: #ef4444;"></div>
-                    <span>Z-Disc Boundary Markers</span>
-                </div>
-                <div class="legend-item">
-                    <div class="color-dot" style="background: var(--accent-ca);"></div>
-                    <span>Calcium Ions (Tropomyosin conformational shift triggers)</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const canvas = document.getElementById('simCanvas');
-        const ctx = canvas.getContext('2d');
-        const wrapper = document.getElementById('canvasWrapper');
-
-        const state = {
-            ca: 0,
-            atp: 0.5,
-            cycleProgress: 0, 
-            sarcomereWidth: 540, 
-            targetWidth: 540
-        };
-
-        const caRange = document.getElementById('calciumRange');
-        const atpRange = document.getElementById('atpRange');
-        const caVal = document.getElementById('caVal');
-        const atpVal = document.getElementById('atpVal');
-        const stateBadge = document.getElementById('stateBadge');
-
-        function handleResize() {
-            canvas.width = wrapper.clientWidth;
-            canvas.height = wrapper.clientHeight;
-        }
-        window.addEventListener('resize', handleResize);
-        handleResize();
-
-        caRange.addEventListener('input', (e) => {
-            state.ca = e.target.value / 100;
-            caVal.innerText = e.target.value + '%';
-        });
-
-        atpRange.addEventListener('input', (e) => {
-            state.atp = e.target.value / 100;
-            atpVal.innerText = e.target.value + '%';
-        });
-
-        function updateKinetics() {
-            let baseMaxWidth = canvas.width * 0.7; 
-            if (baseMaxWidth < 200) baseMaxWidth = 200;
-
-            if (state.ca < 0.2) {
-                stateBadge.className = "status-badge";
-                stateBadge.innerHTML = `<strong>Resting Complex:</strong> Low Ca²⁺ levels keep troponin/tropomyosin blocks intact. Myosin heads cannot attach.`;
-                state.targetWidth = baseMaxWidth;
-                state.cycleProgress = 0;
-            } else if (state.atp < 0.15) {
-                stateBadge.className = "status-badge active-state";
-                stateBadge.innerHTML = `<strong>Rigor Complex (Rigor Mortis):</strong> Myosin remains locked to actin filaments due to complete depletion of ATP.`;
-            } else {
-                stateBadge.className = "status-badge active-state";
-                stateBadge.innerHTML = `<strong>Active Cross-Bridge Cycling:</strong> Ca²⁺ uncovers binding sites. Myosin actively hydrolyzes ATP to generate directional tension towards center.`;
-                
-                state.cycleProgress += 0.04 * state.atp * state.ca;
-                let contractionFactor = Math.sin(state.cycleProgress);
-                if (contractionFactor > 0) {
-                    state.targetWidth = baseMaxWidth - (contractionFactor * (baseMaxWidth * 0.2) * state.ca);
-                }
-            }
-state.sarcomereWidth += (state.targetWidth - state.sarcomereWidth) * 0.1;}function drawSim() {ctx.clearRect(0, 0, canvas.width, canvas.height);const centerX = canvas.width / 2;const centerY = canvas.height / 2;const halfWidth = state.sarcomereWidth / 2;const leftZ = centerX - halfWidth;const rightZ = centerX + halfWidth;ctx.lineWidth = 6;ctx.strokeStyle = '#ef4444';ctx.beginPath();ctx.moveTo(leftZ, 40); ctx.lineTo(leftZ, canvas.height - 40);ctx.moveTo(rightZ, 40); ctx.lineTo(rightZ, canvas.height - 40);ctx.stroke();ctx.lineWidth = 14;ctx.strokeStyle = '#2563eb';ctx.beginPath();ctx.moveTo(centerX - (canvas.width * 0.25), centerY);ctx.lineTo(centerX + (canvas.width * 0.25), centerY);ctx.stroke();ctx.lineWidth = 4;const leftThinEnd = leftZ + (canvas.width * 0.3);const rightThinEnd = rightZ - (canvas.width * 0.3);const trackOffsets = [-60, 60];trackOffsets.forEach(offset => {const yPos = centerY + offset;ctx.strokeStyle = '#f43f5e';ctx.beginPath();ctx.moveTo(leftZ, yPos); ctx.lineTo(leftThinEnd, yPos);ctx.moveTo(rightZ, yPos); ctx.lineTo(rightThinEnd, yPos);ctx.stroke();ctx.lineWidth = 1.5;ctx.strokeStyle = state.ca > 0.4 ? '#475569' : '#38bdf8';ctx.beginPath();ctx.moveTo(leftZ, yPos - 4); ctx.lineTo(leftThinEnd, yPos - 4);ctx.moveTo(rightZ, yPos + 4); ctx.lineTo(rightThinEnd, yPos + 4);ctx.stroke();ctx.lineWidth = 4;});const relativePositions = [-0.18, -0.12, -0.06, 0.06, 0.12, 0.18];relativePositions.forEach(posMult => {const absoluteX = centerX + (canvas.width * posMult);trackOffsets.forEach(offset => {let angleModifier = Math.sin(state.cycleProgress) * 15;if (posMult < 0) angleModifier = -angleModifier;let reachesActin = (absoluteX >= leftZ && absoluteX <= leftThinEnd) ||(absoluteX <= rightZ && absoluteX >= rightThinEnd);let isAttached = state.ca > 0.2 && state.atp > 0.15 && reachesActin;ctx.save();ctx.translate(absoluteX, centerY + (offset > 0 ? 6 : -6));if (isAttached) ctx.rotate((angleModifier * Math.PI) / 180);ctx.fillStyle = '#3b82f6';ctx.beginPath();ctx.ellipse(0, offset > 0 ? 10 : -10, 5, 11, 0, 0, 2 * Math.PI);ctx.fill();ctx.restore();});});ctx.fillStyle = '#64748b';ctx.font = 'bold 10px monospace';ctx.fillText("Z-DISC", leftZ - 18, 30);ctx.fillText("Z-DISC", rightZ - 18, 30);ctx.fillText("M-LINE (CENTER)", centerX - 45, centerY - 18);}function engineLoop() {updateKinetics();drawSim();requestAnimationFrame(engineLoop);}engineLoop();
+            gap: 8px;font-size: 0.8rem;border-top: 1px solid var(--border-color);padding-top: 15px;}.legend-item {display: flex;align-items: center;gap: 8px;}.color-dot {width: 12px;height: 12px;border-radius: 3px;flex-shrink: 0;}Sarcomere Physiology & KinematicsHigh-fidelity medical visualization of the sliding filament mechanism and cross-bridge cycling dynamics.M-LINE (CENTER)Z-DISCZ-DISCSarcoplasmic [Ca²⁺] 0%Intracellular [ATP] 50%Physiological MetricsCurrent State: Resting State (No interaction). Raise Calcium concentration to begin cross-bridge activation.Thin Filament (Actin Helix / Tropomyosin Strand)Thick Filament (Myosin Bundle Core)Z-Disc Boundary MarkersCalcium Ions (Tropomyosin conformational shift triggers)const root = document.documentElement;const caRange = document.getElementById('calciumRange');const atpRange = document.getElementById('atpRange');const caVal = document.getElementById('caVal');const atpVal = document.getElementById('atpVal');const stateBadge = document.getElementById('stateBadge');let runtime = {ca: 0,atp: 0.5,ticker: 0,currentWidth: 85};caRange.addEventListener('input', (e) => {runtime.ca = e.target.value / 100;caVal.innerText = e.target.value + '%';});atpRange.addEventListener('input', (e) => {runtime.atp = e.target.value / 100;atpVal.innerText = e.target.value + '%';});function simulationStep() {if (runtime.ca < 0.2) {stateBadge.className = "status-badge";stateBadge.innerHTML = <strong>Resting Complex:</strong> Low Ca²⁺ levels keep troponin/tropomyosin blocks intact. Myosin heads cannot attach.;root.style.setProperty('--tropomyosin-color', '#38bdf8');root.style.setProperty('--myosin-angle', '0deg');runtime.currentWidth += (85 - runtime.currentWidth) * 0.05;} else if (runtime.atp < 0.15) {stateBadge.className = "status-badge active-state";stateBadge.innerHTML = <strong>Rigor Complex (Rigor Mortis):</strong> Myosin remains locked to actin filaments due to complete depletion of ATP.;root.style.setProperty('--myosin-angle', '-15deg');} else {stateBadge.className = "status-badge active-state";stateBadge.innerHTML = <strong>Active Cross-Bridge Cycling:</strong> Ca²⁺ uncovers binding sites. Myosin actively hydrolyzes ATP to generate directional tension towards center.;root.style.setProperty('--tropomyosin-color', '#475569');runtime.ticker += 0.05 * runtime.atp * runtime.ca;let wave = Math.sin(runtime.ticker);let headAngle = Math.sin(runtime.ticker * 2) * 20;root.style.setProperty('--myosin-angle', ${headAngle}deg);let targetWidth = 85 - (Math.max(0, wave) * 25 * runtime.ca);runtime.currentWidth += (targetWidth - runtime.currentWidth) * 0.05;}root.style.setProperty('--sarcomere-width', ${runtime.currentWidth}%);requestAnimationFrame(simulationStep);} //Initialize Runtime Engine InstantlysimulationStep();
