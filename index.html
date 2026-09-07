@@ -77,6 +77,7 @@
         .canvas-wrapper {
             position: relative;
             width: 100%;
+            height: 400px;
             background: #0b0f19;
             border-radius: 8px;
             overflow: hidden;
@@ -86,7 +87,7 @@
         canvas {
             display: block;
             width: 100%;
-            height: auto;
+            height: 100%;
         }
 
         .control-panel {
@@ -193,10 +194,9 @@
     </header>
 
     <div class="main-container">
-        <!-- Simulation Viewport -->
         <div class="simulation-pane">
-            <div class="canvas-wrapper">
-                <canvas id="simCanvas" width="800" height="400"></canvas>
+            <div class="canvas-wrapper" id="canvasWrapper">
+                <canvas id="simCanvas"></canvas>
             </div>
             
             <div class="control-panel">
@@ -211,7 +211,6 @@
             </div>
         </div>
 
-        <!-- Medical Metadata and Explanations -->
         <div class="dashboard-pane">
             <h2 style="font-size: 1.1rem; font-weight: 600;">Physiological Metrics</h2>
             
@@ -243,22 +242,28 @@
     <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
+        const wrapper = document.getElementById('canvasWrapper');
 
-        // State parameters
         const state = {
             ca: 0,
             atp: 0.5,
-            cycleProgress: 0, // Cross-bridge kinematics ticker
+            cycleProgress: 0, 
             sarcomereWidth: 540, 
             targetWidth: 540
         };
 
-        // DOM inputs
         const caRange = document.getElementById('calciumRange');
         const atpRange = document.getElementById('atpRange');
         const caVal = document.getElementById('caVal');
         const atpVal = document.getElementById('atpVal');
         const stateBadge = document.getElementById('stateBadge');
+
+        function handleResize() {
+            canvas.width = wrapper.clientWidth;
+            canvas.height = wrapper.clientHeight;
+        }
+        window.addEventListener('resize', handleResize);
+        handleResize();
 
         caRange.addEventListener('input', (e) => {
             state.ca = e.target.value / 100;
@@ -271,420 +276,25 @@
         });
 
         function updateKinetics() {
-            // Determine structural state based on ATP and Calcium parameters
+            let baseMaxWidth = canvas.width * 0.7; 
+            if (baseMaxWidth < 200) baseMaxWidth = 200;
+
             if (state.ca < 0.2) {
                 stateBadge.className = "status-badge";
                 stateBadge.innerHTML = `<strong>Resting Complex:</strong> Low Ca²⁺ levels keep troponin/tropomyosin blocks intact. Myosin heads cannot attach.`;
-                state.targetWidth = 540; // relax
+                state.targetWidth = baseMaxWidth;
                 state.cycleProgress = 0;
             } else if (state.atp < 0.15) {
-stateBadge.className = "status-badge active-state";stateBadge.innerHTML = <strong>Rigor Complex (Rigor Mortis):</strong> Myosin remains locked to actin filaments due to complete depletion of ATP.;// Lock current state width wherever it is} else {stateBadge.className = "status-badge active-state";stateBadge.innerHTML = <strong>Active Cross-Bridge Cycling:</strong> Ca²⁺ uncovers binding sites. Myosin actively hydrolyzes ATP to generate directional tension towards center.;// Advance cycle speed relative to system metricsstate.cycleProgress += 0.04 * state.atp * state.ca;// Map cyclic position directly to dynamic width translation matriceslet contractionFactor = Math.sin(state.cycleProgress);if (contractionFactor > 0) {state.targetWidth = 540 - (contractionFactor * 90 * state.ca);}}// Smooth linear filtering for physics dampeningstate.sarcomereWidth += (state.targetWidth - state.sarcomereWidth) * 0.1;}function drawSim() {ctx.clearRect(0, 0, canvas.width, canvas.height);const centerX = canvas.width / 2;const centerY = canvas.height / 2;const halfWidth = state.sarcomereWidth / 2;const leftZ = centerX - halfWidth;const rightZ = centerX + halfWidth;// 1. Render Z-Discs Boundariesctx.lineWidth = 6;ctx.strokeStyle = '#ef4444';// Left Z-Linectx.beginPath();ctx.moveTo(leftZ, 50);ctx.lineTo(leftZ, 350);ctx.stroke();// Right Z-Linectx.beginPath();ctx.moveTo(rightZ, 50);ctx.lineTo(rightZ, 350);ctx.stroke();// 2. Render Thick Filament Core (Center Anchored)ctx.lineWidth = 14;ctx.strokeStyle = '#2563eb';ctx.beginPath();ctx.moveTo(centerX - 180, centerY);ctx.lineTo(centerX + 180, centerY);ctx.stroke();// 3. Render Thin Filaments (Lateral/Z-Disc Anchored)ctx.lineWidth = 4;const leftThinEnd = leftZ + 240;const rightThinEnd = rightZ - 240;const trackOffsets = [-60, 60];trackOffsets.forEach(offset => {const yPos = centerY + offset;// Actin Coresctx.strokeStyle = '#f43f5e';ctx.beginPath();ctx.moveTo(leftZ, yPos);ctx.lineTo(leftThinEnd, yPos);ctx.moveTo(rightZ, yPos);ctx.lineTo(rightThinEnd, yPos);ctx.stroke();// Tropomyosin block visual modifier linesctx.lineWidth = 1.5;ctx.strokeStyle = state.ca > 0.4 ? '#475569' : '#38bdf8'; // shifts colors when uncoveredctx.beginPath();ctx.moveTo(leftZ, yPos - 4); ctx.lineTo(leftThinEnd, yPos - 4);ctx.moveTo(rightZ, yPos + 4); ctx.lineTo(rightThinEnd, yPos + 4);ctx.stroke();ctx.lineWidth = 4; // Reset});// 4. Kinematic Engine: Generate Dynamic Myosin Cross-Bridge Headsconst headPositionsX = [-140, -90, -40, 40, 90, 140];headPositionsX.forEach(posX => {const absoluteX = centerX + posX;trackOffsets.forEach(offset => {const targetY = centerY + offset;// Determine phase offsets relative to spatial orientationlet cyclePhase = state.cycleProgress;let angleModifier = Math.sin(cyclePhase) * 15;if (posX < 0) {angleModifier = -angleModifier; // Mirrored movement vector for left vs right}// Adjust attachment physics boundaries based on dynamic rangeslet reachesActin = (absoluteX >= leftZ && absoluteX <= leftThinEnd) ||(absoluteX <= rightZ && absoluteX >= rightThinEnd);let isAttached = state.ca > 0.2 && state.atp > 0.15 && reachesActin;ctx.save();ctx.translate(absoluteX, centerY + (offset > 0 ? 6 : -6));if (isAttached) {// Transform geometry to bind onto target site coordinatesctx.rotate((angleModifier * Math.PI) / 180);}ctx.fillStyle = '#3b82f6';ctx.beginPath();// Structuring functional schematic representation of biological headsctx.ellipse(0, offset > 0 ? 10 : -10, 6, 12, 0, 0, 2 * Math.PI);ctx.fill();ctx.restore();});});// 5. Annotationsctx.fillStyle = '#64748b';ctx.font = 'bold 11px monospace';ctx.fillText("Z-DISC", leftZ - 20, 42);ctx.fillText("Z-DISC", rightZ - 20, 42);ctx.fillText("M-LINE (CENTER)", centerX - 45, centerY - 18);}function engineLoop() {updateKinetics();drawSim();requestAnimationFrame(engineLoop);}// Initialize Visualization RuntimeengineLoop();text:
-Here is a complete, single-file HTML application that you can copy, paste into a file named index.html, and push directly to a GitHub repository (or host live via GitHub Pages).
-It has been completely redesigned with a medically professional, high-fidelity dark aesthetic, clean typography, smooth hardware-accelerated 2D canvas rendering, and a side-by-side educational breakdown of what happens at every physiological stage.
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhysioSim: Interactive Sarcomere Dynamics</title>
-    <style>
-        :root {
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent-actin: #f43f5e;
-            --accent-myosin: #3b82f6;
-            --accent-ca: #22c55e;
-            --accent-atp: #eab308;
-            --border-color: #334155;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-primary);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-        }
-
-        header {
-            margin-bottom: 20px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 15px;
-        }
-
-        header h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            letter-spacing: -0.025em;
-        }
-
-        header p {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-top: 4px;
-        }
-
-        .main-container {
-            display: grid;
-            grid-template-columns: 1fr 340px;
-            gap: 20px;
-            flex: 1;
-        }
-
-        @media (max-width: 900px) {
-            .main-container {
-                grid-template-columns: 1fr;
+                stateBadge.className = "status-badge active-state";
+                stateBadge.innerHTML = `<strong>Rigor Complex (Rigor Mortis):</strong> Myosin remains locked to actin filaments due to complete depletion of ATP.`;
+            } else {
+                stateBadge.className = "status-badge active-state";
+                stateBadge.innerHTML = `<strong>Active Cross-Bridge Cycling:</strong> Ca²⁺ uncovers binding sites. Myosin actively hydrolyzes ATP to generate directional tension towards center.`;
+                
+                state.cycleProgress += 0.04 * state.atp * state.ca;
+                let contractionFactor = Math.sin(state.cycleProgress);
+                if (contractionFactor > 0) {
+                    state.targetWidth = baseMaxWidth - (contractionFactor * (baseMaxWidth * 0.2) * state.ca);
+                }
             }
-        }
-
-        .simulation-pane {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .canvas-wrapper {
-            position: relative;
-            width: 100%;
-            background: #0b0f19;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.05);
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: auto;
-        }
-
-        .control-panel {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            background: rgba(15, 23, 42, 0.4);
-            padding: 16px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-        }
-
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .control-group label {
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .control-group label .val {
-            font-family: monospace;
-        }
-
-        input[type="range"] {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 6px;
-            background: #334155;
-            border-radius: 3px;
-            outline: none;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-
-        #calciumRange::-webkit-slider-thumb { background: var(--accent-ca); }
-        #atpRange::-webkit-slider-thumb { background: var(--accent-atp); }
-
-        .dashboard-pane {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .status-badge {
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            line-height: 1.4;
-            border-left: 4px solid #64748b;
-            background: rgba(15, 23, 42, 0.3);
-        }
-
-        .status-badge.active-state {
-            border-left-color: var(--accent-myosin);
-        }
-
-        .legend {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            font-size: 0.8rem;
-            border-top: 1px solid var(--border-color);
-            padding-top: 15px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .color-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 3px;
-            flex-shrink: 0;
-        }
-    </style>
-</head>
-<body>
-
-    <header>
-        <h1>Sarcomere Physiology & Kinematics</h1>
-        <p>High-fidelity medical visualization of the sliding filament mechanism and cross-bridge cycling dynamics.</p>
-    </header>
-
-    <div class="main-container">
-        <!-- Simulation Viewport -->
-        <div class="simulation-pane">
-            <div class="canvas-wrapper">
-                <canvas id="simCanvas" width="800" height="400"></canvas>
-            </div>
-            
-            <div class="control-panel">
-                <div class="control-group">
-                    <label style="color: var(--accent-ca);">Sarcoplasmic [Ca²⁺] <span id="caVal" class="val">0%</span></label>
-                    <input type="range" id="calciumRange" min="0" max="100" value="0">
-                </div>
-                <div class="control-group">
-                    <label style="color: var(--accent-atp);">Intracellular [ATP] <span id="atpVal" class="val">50%</span></label>
-                    <input type="range" id="atpRange" min="0" max="100" value="50">
-                </div>
-            </div>
-        </div>
-
-        <!-- Medical Metadata and Explanations -->
-        <div class="dashboard-pane">
-            <h2 style="font-size: 1.1rem; font-weight: 600;">Physiological Metrics</h2>
-            
-            <div id="stateBadge" class="status-badge">
-                <strong>Current State:</strong> Resting State (No interaction). Raise Calcium concentration to begin cross-bridge activation.
-            </div>
-
-            <div class="legend">
-                <div class="legend-item">
-                    <div class="color-dot" style="background: var(--accent-actin);"></div>
-                    <span>Thin Filament (Actin Helix / Tropomyosin Strand)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="color-dot" style="background: var(--accent-myosin);"></div>
-                    <span>Thick Filament (Myosin Bundle Core)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="color-dot" style="background: #ef4444;"></div>
-                    <span>Z-Disc Boundary Markers</span>
-                </div>
-                <div class="legend-item">
-                    <div class="color-dot" style="background: var(--accent-ca);"></div>
-                    <span>Calcium Ions (Tropomyosin conformational shift triggers)</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const canvas = document.getElementById('simCanvas');
-        const ctx = canvas.getContext('2d');
-
-        // State parameters
-        const state = {
-            ca: 0,
-            atp: 0.5,
-            cycleProgress: 0, // Cross-bridge kinematics ticker
-            sarcomereWidth: 540, 
-            targetWidth: 540
-        };
-
-        // DOM inputs
-        const caRange = document.getElementById('calciumRange');
-        const atpRange = document.getElementById('atpRange');
-        const caVal = document.getElementById('caVal');
-        const atpVal = document.getElementById('atpVal');
-        const stateBadge = document.getElementById('stateBadge');
-
-        caRange.addEventListener('input', (e) => {
-            state.ca = e.target.value / 100;
-            caVal.innerText = e.target.value + '%';
-        });
-
-        atpRange.addEventListener('input', (e) => {
-            state.atp = e.target.value / 100;
-            atpVal.innerText = e.target.value + '%';
-        });
-
-        function updateKinetics() {
-            // Determine structural state based on ATP and Calcium parameters
-            if (state.ca < 0.2) {
-                stateBadge.className = "status-badge";
-                stateBadge.innerHTML = `<strong>Resting Complex:</strong> Low Ca²⁺ levels keep troponin/tropomyosin blocks intact. Myosin heads cannot attach.`;
-                state.targetWidth = 540; // relax
-                state.cycleProgress = 0;
-            } else if (state.atp < 0.15) {
-
-stateBadge.className = "status-badge active-state";
-stateBadge.innerHTML = <strong>Rigor Complex (Rigor Mortis):</strong> Myosin remains locked to actin filaments due to complete depletion of ATP.;
-// Lock current state width wherever it is
-} else {
-stateBadge.className = "status-badge active-state";
-stateBadge.innerHTML = <strong>Active Cross-Bridge Cycling:</strong> Ca²⁺ uncovers binding sites. Myosin actively hydrolyzes ATP to generate directional tension towards center.;
-// Advance cycle speed relative to system metrics
-state.cycleProgress += 0.04 * state.atp * state.ca;
-// Map cyclic position directly to dynamic width translation matrices
-let contractionFactor = Math.sin(state.cycleProgress);
-if (contractionFactor > 0) {
-state.targetWidth = 540 - (contractionFactor * 90 * state.ca);
-}
-}
-// Smooth linear filtering for physics dampening
-state.sarcomereWidth += (state.targetWidth - state.sarcomereWidth) * 0.1;
-}
-function drawSim() {
-ctx.clearRect(0, 0, canvas.width, canvas.height);
-const centerX = canvas.width / 2;
-const centerY = canvas.height / 2;
-const halfWidth = state.sarcomereWidth / 2;
-const leftZ = centerX - halfWidth;
-const rightZ = centerX + halfWidth;
-// 1. Render Z-Discs Boundaries
-ctx.lineWidth = 6;
-ctx.strokeStyle = '#ef4444';
-// Left Z-Line
-ctx.beginPath();
-ctx.moveTo(leftZ, 50);
-ctx.lineTo(leftZ, 350);
-ctx.stroke();
-// Right Z-Line
-ctx.beginPath();
-ctx.moveTo(rightZ, 50);
-ctx.lineTo(rightZ, 350);
-ctx.stroke();
-// 2. Render Thick Filament Core (Center Anchored)
-ctx.lineWidth = 14;
-ctx.strokeStyle = '#2563eb';
-ctx.beginPath();
-ctx.moveTo(centerX - 180, centerY);
-ctx.lineTo(centerX + 180, centerY);
-ctx.stroke();
-// 3. Render Thin Filaments (Lateral/Z-Disc Anchored)
-ctx.lineWidth = 4;
-const leftThinEnd = leftZ + 240;
-const rightThinEnd = rightZ - 240;
-const trackOffsets = [-60, 60];
-trackOffsets.forEach(offset => {
-const yPos = centerY + offset;
-// Actin Cores
-ctx.strokeStyle = '#f43f5e';
-ctx.beginPath();
-ctx.moveTo(leftZ, yPos);
-ctx.lineTo(leftThinEnd, yPos);
-ctx.moveTo(rightZ, yPos);
-ctx.lineTo(rightThinEnd, yPos);
-ctx.stroke();
-// Tropomyosin block visual modifier lines
-ctx.lineWidth = 1.5;
-ctx.strokeStyle = state.ca > 0.4 ? '#475569' : '#38bdf8'; // shifts colors when uncovered
-ctx.beginPath();
-ctx.moveTo(leftZ, yPos - 4); ctx.lineTo(leftThinEnd, yPos - 4);
-ctx.moveTo(rightZ, yPos + 4); ctx.lineTo(rightThinEnd, yPos + 4);
-ctx.stroke();
-ctx.lineWidth = 4; // Reset
-});
-// 4. Kinematic Engine: Generate Dynamic Myosin Cross-Bridge Heads
-const headPositionsX = [-140, -90, -40, 40, 90, 140];
-headPositionsX.forEach(posX => {
-const absoluteX = centerX + posX;
-trackOffsets.forEach(offset => {
-const targetY = centerY + offset;
-// Determine phase offsets relative to spatial orientation
-let cyclePhase = state.cycleProgress;
-let angleModifier = Math.sin(cyclePhase) * 15;
-if (posX < 0) {
-angleModifier = -angleModifier; // Mirrored movement vector for left vs right
-}
-// Adjust attachment physics boundaries based on dynamic ranges
-let reachesActin = (absoluteX >= leftZ && absoluteX <= leftThinEnd) ||
-(absoluteX <= rightZ && absoluteX >= rightThinEnd);
-let isAttached = state.ca > 0.2 && state.atp > 0.15 && reachesActin;
-ctx.save();
-ctx.translate(absoluteX, centerY + (offset > 0 ? 6 : -6));
-if (isAttached) {
-// Transform geometry to bind onto target site coordinates
-ctx.rotate((angleModifier * Math.PI) / 180);
-}
-ctx.fillStyle = '#3b82f6';
-ctx.beginPath();
-// Structuring functional schematic representation of biological heads
-ctx.ellipse(0, offset > 0 ? 10 : -10, 6, 12, 0, 0, 2 * Math.PI);
-ctx.fill();
-ctx.restore();
-});
-});
-// 5. Annotations
-ctx.fillStyle = '#64748b';
-ctx.font = 'bold 11px monospace';
-ctx.fillText("Z-DISC", leftZ - 20, 42);
-ctx.fillText("Z-DISC", rightZ - 20, 42);
-ctx.fillText("M-LINE (CENTER)", centerX - 45, centerY - 18);
-}
-function engineLoop() {
-updateKinetics();
-drawSim();
-requestAnimationFrame(engineLoop);
-}
-// Initialize Visualization Runtime
-engineLoop();
-
-
-
-// 🚀 How to deploy this to GitHub in 3 steps:
-// 1. Create a **new repository** on your GitHub account (e.g., named `sarcomere-simulation`).
-// 2. Create a file inside that repository named exactly **`index.html`** and paste the raw code block above into it.
-// 3. Go to the repository **Settings** ➡️ **Pages**, change the Build/Deployment source branch to `main` (or `master`), and click **Save**. Your clinical simulation will be live on the web instantly.
-
-// <FollowUp>
-// Would you like me to add code that integrates dynamic charts tracking **tension production** and **ATP consumption rate** over time?
-// </FollowUp>
-
-
+state.sarcomereWidth += (state.targetWidth - state.sarcomereWidth) * 0.1;}function drawSim() {ctx.clearRect(0, 0, canvas.width, canvas.height);const centerX = canvas.width / 2;const centerY = canvas.height / 2;const halfWidth = state.sarcomereWidth / 2;const leftZ = centerX - halfWidth;const rightZ = centerX + halfWidth;ctx.lineWidth = 6;ctx.strokeStyle = '#ef4444';ctx.beginPath();ctx.moveTo(leftZ, 40); ctx.lineTo(leftZ, canvas.height - 40);ctx.moveTo(rightZ, 40); ctx.lineTo(rightZ, canvas.height - 40);ctx.stroke();ctx.lineWidth = 14;ctx.strokeStyle = '#2563eb';ctx.beginPath();ctx.moveTo(centerX - (canvas.width * 0.25), centerY);ctx.lineTo(centerX + (canvas.width * 0.25), centerY);ctx.stroke();ctx.lineWidth = 4;const leftThinEnd = leftZ + (canvas.width * 0.3);const rightThinEnd = rightZ - (canvas.width * 0.3);const trackOffsets = [-60, 60];trackOffsets.forEach(offset => {const yPos = centerY + offset;ctx.strokeStyle = '#f43f5e';ctx.beginPath();ctx.moveTo(leftZ, yPos); ctx.lineTo(leftThinEnd, yPos);ctx.moveTo(rightZ, yPos); ctx.lineTo(rightThinEnd, yPos);ctx.stroke();ctx.lineWidth = 1.5;ctx.strokeStyle = state.ca > 0.4 ? '#475569' : '#38bdf8';ctx.beginPath();ctx.moveTo(leftZ, yPos - 4); ctx.lineTo(leftThinEnd, yPos - 4);ctx.moveTo(rightZ, yPos + 4); ctx.lineTo(rightThinEnd, yPos + 4);ctx.stroke();ctx.lineWidth = 4;});const relativePositions = [-0.18, -0.12, -0.06, 0.06, 0.12, 0.18];relativePositions.forEach(posMult => {const absoluteX = centerX + (canvas.width * posMult);trackOffsets.forEach(offset => {let angleModifier = Math.sin(state.cycleProgress) * 15;if (posMult < 0) angleModifier = -angleModifier;let reachesActin = (absoluteX >= leftZ && absoluteX <= leftThinEnd) ||(absoluteX <= rightZ && absoluteX >= rightThinEnd);let isAttached = state.ca > 0.2 && state.atp > 0.15 && reachesActin;ctx.save();ctx.translate(absoluteX, centerY + (offset > 0 ? 6 : -6));if (isAttached) ctx.rotate((angleModifier * Math.PI) / 180);ctx.fillStyle = '#3b82f6';ctx.beginPath();ctx.ellipse(0, offset > 0 ? 10 : -10, 5, 11, 0, 0, 2 * Math.PI);ctx.fill();ctx.restore();});});ctx.fillStyle = '#64748b';ctx.font = 'bold 10px monospace';ctx.fillText("Z-DISC", leftZ - 18, 30);ctx.fillText("Z-DISC", rightZ - 18, 30);ctx.fillText("M-LINE (CENTER)", centerX - 45, centerY - 18);}function engineLoop() {updateKinetics();drawSim();requestAnimationFrame(engineLoop);}engineLoop();
