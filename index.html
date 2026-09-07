@@ -1,285 +1,2699 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhysioSim: Interactive Sarcomere Dynamics</title>
-    <style>
-        :root {
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent-actin: #f43f5e;
-            --accent-myosin: #3b82f6;
-            --accent-ca: #22c55e;
-            --accent-atp: #eab308;
-            --border-color: #334155;
-            
-            /* Dynamic Physics Handles managed via JavaScript */
-            --sarcomere-width: 80%;
-            --actin-displace: 0px;
-            --myosin-angle: 0deg;
-            --tropomyosin-color: #38bdf8;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f3d56" />
+  <meta name="description" content="MedAxis Clinical Medical Dashboard" />
+  <title>MedAxis Clinical Platform</title>
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-        body {
-            background-color: var(--bg-primary);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-        }
+  <!-- Font Awesome -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+  />
 
-        header {
-            margin-bottom: 20px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 15px;
-        }
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-        header h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            letter-spacing: -0.025em;
-        }
-
-        header p {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-top: 4px;
-        }
-
-        .main-container {
-            display: grid;
-            grid-template-columns: 1fr 340px;
-            gap: 20px;
-            flex: 1;
-        }
-
-        @media (max-width: 900px) {
-            .main-container {
-                grid-template-columns: 1fr;
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ["Inter", "Segoe UI", "Roboto", "Arial", "sans-serif"]
+          },
+          colors: {
+            clinical: {
+              50: "#eff9fb",
+              100: "#d8f1f5",
+              200: "#b5e3ea",
+              300: "#83ced9",
+              400: "#4bb2c1",
+              500: "#2394a7",
+              600: "#197789",
+              700: "#175f70",
+              800: "#174d5b",
+              900: "#163f4b"
+            },
+            navy: {
+              50: "#eef4f8",
+              100: "#d9e6ee",
+              200: "#b9cfdb",
+              300: "#8eafc0",
+              400: "#608da5",
+              500: "#43738c",
+              600: "#315d75",
+              700: "#284b5f",
+              800: "#223f4f",
+              900: "#1d3542"
             }
+          },
+          boxShadow: {
+            clinical: "0 8px 30px rgba(20, 65, 85, 0.08)"
+          }
         }
+      }
+    };
+  </script>
 
-        .simulation-pane {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-        /* Pure CSS Simulation Environment Viewport */
-        .simulation-viewport {
-            position: relative;
-            width: 100%;
-            height: 400px;
-            background: #0b0f19;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.05);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+    html {
+      scroll-behavior: smooth;
+    }
 
-        /* Sarcomere structural architecture container */
-        .sarcomere-structure {
-            position: relative;
-            width: var(--sarcomere-width);
-            height: 300px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: width 0.1s linear;
-        }
+    body {
+      margin: 0;
+      background: #f4f8fa;
+      color: #19333f;
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+    }
 
-        /* Z-Disc Lines */
-        .z-disc {
-            position: absolute;
-            width: 6px;
-            height: 100%;
-            background-color: #ef4444;
-            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
-            z-index: 10;
-        }
-        .z-disc.left { left: 0; }
-        .z-disc.right { right: 0; }
-        .z-disc-label {
-            position: absolute;
-            top: -20px;
-            left: -18px;
-            color: var(--text-muted);
-            font-size: 10px;
-            font-weight: bold;
-            font-family: monospace;
-        }
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
 
-        /* M-Line Center Anchor */
-        .m-line {
-            position: absolute;
-            width: 4px;
-            height: 70%;
-            background-color: rgba(255,255,255,0.15);
-            border-left: 2px dashed rgba(255,255,255,0.3);
-            z-index: 1;
-        }
-        .m-line-label {
-            position: absolute;
-            top: 25px;
-            color: var(--text-muted);
-            font-size: 10px;
-            font-weight: bold;
-            font-family: monospace;
-            white-space: nowrap;
-        }
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: 3px solid rgba(35, 148, 167, 0.35);
+      outline-offset: 2px;
+    }
 
-        /* Myosin Thick Filament Center-Mass */
-        .thick-filament {
-            position: absolute;
-            width: 60%;
-            height: 16px;
-            background: linear-gradient(90deg, #1d4ed8, #3b82f6, #1d4ed8);
-            border-radius: 4px;
-            z-index: 2;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-        }
+    .sidebar {
+      width: 264px;
+      transition: transform 0.25s ease;
+    }
 
-        /* Molecular Myosin Intercept Cross-Bridge Heads */
-        .myosin-heads-group {
-            position: absolute;
-            width: 100%;
-            height: 140px;
-            display: flex;
-            justify-content: space-around;
-            pointer-events: none;
-        }
-        .myosin-head-pair {
-            position: relative;
-            width: 12px;
-            height: 100%;
-        }
-        .head-node {
-            position: absolute;
-            width: 8px;
-            height: 22px;
-            background-color: var(--accent-myosin);
-            border-radius: 4px;
-            transform-origin: center center;
-            transform: rotate(var(--myosin-angle));
-            transition: transform 0.05s linear;
-        }
-        .head-node.top { top: 10px; }
-        .head-node.bottom { bottom: 10px; }
+    .main-shell {
+      margin-left: 264px;
+      transition: margin-left 0.25s ease;
+    }
 
-        /* Actin Thin Filaments strands connected to Z-Discs */
-        .thin-filaments-layer {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-        .actin-strand {
-            position: absolute;
-            width: 45%;
-            height: 4px;
-            background-color: var(--accent-actin);
-            border-radius: 2px;
-            box-shadow: 0 0 4px rgba(244, 63, 94, 0.4);
-            border-bottom: 2px solid var(--tropomyosin-color);
-        }
-        .actin-strand.left-top { left: 6px; top: 48px; transform: translateX(var(--actin-displace)); }
-        .actin-strand.left-bottom { left: 6px; bottom: 48px; transform: translateX(var(--actin-displace)); }
-        .actin-strand.right-top { right: 6px; top: 48px; transform: translateX(calc(-1 * var(--actin-displace))); }
-        .actin-strand.right-bottom { right: 6px; bottom: 48px; transform: translateX(calc(-1 * var(--actin-displace))); }
+    .nav-item {
+      position: relative;
+      transition: all 0.2s ease;
+    }
 
-        /* Interface controls custom styles */
-        .control-panel {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            background: rgba(15, 23, 42, 0.4);
-            padding: 16px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateX(2px);
+    }
+
+    .nav-item.active {
+      background: linear-gradient(
+        90deg,
+        rgba(76, 182, 198, 0.22),
+        rgba(76, 182, 198, 0.08)
+      );
+      color: #ffffff;
+    }
+
+    .nav-item.active::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 9px;
+      bottom: 9px;
+      width: 3px;
+      border-radius: 0 5px 5px 0;
+      background: #63c6d2;
+    }
+
+    .card-hover {
+      transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+    }
+
+    .card-hover:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 14px 35px rgba(20, 65, 85, 0.11);
+    }
+
+    .view {
+      display: none;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal-backdrop {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-panel {
+      transform: translateY(15px) scale(0.98);
+      transition: transform 0.2s ease;
+    }
+
+    .modal-backdrop.open .modal-panel {
+      transform: translateY(0) scale(1);
+    }
+
+    .toast {
+      transform: translateX(120%);
+      transition: transform 0.3s ease;
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .medical-grid {
+      background-image:
+        linear-gradient(rgba(23, 95, 112, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(23, 95, 112, 0.035) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .vital-value {
+      font-variant-numeric: tabular-nums;
+    }
+
+    @media (max-width: 1024px) {
+      .sidebar {
+        transform: translateX(-100%);
+        z-index: 60;
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .main-shell {
+        margin-left: 0;
+      }
+
+      .mobile-overlay {
+        display: none;
+      }
+
+      .mobile-overlay.open {
+        display: block;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .top-header {
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Mobile Overlay -->
+  <div
+    id="mobileOverlay"
+    class="mobile-overlay fixed inset-0 bg-slate-950/40 z-50 lg:hidden"
+    aria-hidden="true"
+  ></div>
+
+  <!-- Sidebar -->
+  <aside
+    id="sidebar"
+    class="sidebar fixed inset-y-0 left-0 z-[60] flex flex-col bg-[#123847] text-slate-300 shadow-2xl"
+    aria-label="Primary navigation"
+  >
+    <div class="h-20 px-6 flex items-center border-b border-white/10">
+      <div class="w-10 h-10 rounded-xl bg-clinical-500 flex items-center justify-center shadow-lg">
+        <i class="fa-solid fa-heart-pulse text-white text-lg" aria-hidden="true"></i>
+      </div>
+      <div class="ml-3">
+        <div class="text-white font-bold text-lg tracking-tight">MedAxis</div>
+        <div class="text-[10px] uppercase tracking-[0.18em] text-clinical-300">
+          Clinical Platform
+        </div>
+      </div>
+    </div>
+
+    <div class="px-5 pt-7 pb-3">
+      <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+        Workspace
+      </p>
+    </div>
+
+    <nav class="px-3 space-y-1" aria-label="Main menu">
+      <button
+        class="nav-item active w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-left"
+        data-view="dashboard"
+        aria-current="page"
+      >
+        <i class="fa-solid fa-chart-line w-5 text-center" aria-hidden="true"></i>
+        Dashboard
+      </button>
+
+      <button
+        class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-left"
+        data-view="patients"
+      >
+        <i class="fa-solid fa-users w-5 text-center" aria-hidden="true"></i>
+        Patient Directory
+      </button>
+
+      <button
+        class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-left"
+        data-view="appointments"
+      >
+        <i class="fa-solid fa-calendar-days w-5 text-center" aria-hidden="true"></i>
+        Appointments
+      </button>
+
+      <button
+        class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-left"
+        data-view="clinical-notes"
+      >
+        <i class="fa-solid fa-file-medical w-5 text-center" aria-hidden="true"></i>
+        Clinical Notes
+      </button>
+    </nav>
+
+    <div class="px-5 pt-8 pb-3">
+      <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+        Clinical Tools
+      </p>
+    </div>
+
+    <nav class="px-3 space-y-1">
+      <button
+        class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-left"
+        data-view="physiology"
+      >
+        <i class="fa-solid fa-dna w-5 text-center" aria-hidden="true"></i>
+        Physiology Reference
+      </button>
+
+      <button
+        class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-left"
+        data-view="labs"
+      >
+        <i class="fa-solid fa-flask-vial w-5 text-center" aria-hidden="true"></i>
+        Laboratory
+      </button>
+    </nav>
+
+    <div class="mt-auto p-4">
+      <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 rounded-lg bg-teal-400/15 flex items-center justify-center">
+            <i class="fa-solid fa-shield-halved text-teal-300" aria-hidden="true"></i>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-white">Secure Workspace</p>
+            <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">
+              Clinical data is displayed in a simulated environment.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Shell -->
+  <div class="main-shell min-h-screen">
+    <!-- Header -->
+    <header
+      class="top-header h-20 bg-white border-b border-slate-200 flex items-center justify-between px-7 sticky top-0 z-40"
+    >
+      <div class="flex items-center gap-4 min-w-0">
+        <button
+          id="menuButton"
+          class="lg:hidden w-10 h-10 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+          aria-label="Open navigation menu"
+        >
+          <i class="fa-solid fa-bars" aria-hidden="true"></i>
+        </button>
+
+        <div class="min-w-0">
+          <p class="text-xs text-slate-500">Clinical Workspace</p>
+          <h1 id="pageTitle" class="font-bold text-slate-800 truncate">
+            Dashboard Overview
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div class="hidden md:flex items-center relative">
+          <i
+            class="fa-solid fa-magnifying-glass absolute left-3 text-slate-400 text-sm"
+            aria-hidden="true"
+          ></i>
+          <input
+            id="globalSearch"
+            type="search"
+            placeholder="Search patients..."
+            class="w-52 pl-9 pr-3 py-2.5 text-sm rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-clinical-400 outline-none"
+            aria-label="Search patients"
+          />
+        </div>
+
+        <button
+          id="notificationButton"
+          class="relative w-10 h-10 rounded-lg text-slate-500 hover:bg-slate-100"
+          aria-label="View notifications"
+        >
+          <i class="fa-regular fa-bell" aria-hidden="true"></i>
+          <span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 border-2 border-white"></span>
+        </button>
+
+        <div class="h-8 w-px bg-slate-200 hidden sm:block"></div>
+
+        <button
+          id="profileButton"
+          class="flex items-center gap-3 rounded-lg px-1.5 py-1.5 hover:bg-slate-50"
+          aria-label="Open profile menu"
+        >
+          <div class="avatar w-9 h-9 bg-clinical-100 text-clinical-700 text-xs">
+            DR
+          </div>
+          <div class="hidden sm:block text-left">
+            <p class="text-sm font-semibold text-slate-700">Dr. Rivera</p>
+            <p class="text-[11px] text-slate-400">Attending Physician</p>
+          </div>
+          <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 hidden sm:block"></i>
+        </button>
+      </div>
+    </header>
+
+    <main class="p-5 sm:p-7 max-w-[1600px] mx-auto">
+      <!-- ========================================================= -->
+      <!-- DASHBOARD -->
+      <!-- ========================================================= -->
+      <section id="view-dashboard" class="view active" aria-labelledby="dashboard-heading">
+        <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-7">
+          <div>
+            <p class="text-sm font-semibold text-clinical-600 mb-1">
+              Monday, September 7, 2026
+            </p>
+            <h2 id="dashboard-heading" class="text-2xl sm:text-3xl font-bold text-slate-900">
+              Good evening, Dr. Rivera
+            </h2>
+            <p class="mt-1 text-sm text-slate-500">
+              Here's your clinical activity at a glance.
+            </p>
+          </div>
+
+          <button
+            id="quickAppointment"
+            class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-clinical-600 text-white text-sm font-semibold hover:bg-clinical-700 shadow-sm"
+          >
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            New Appointment
+          </button>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+          <article class="card-hover bg-white rounded-xl border border-slate-200 p-5 shadow-clinical">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Total Patients
+                </p>
+                <p class="text-3xl font-bold text-slate-900 mt-2">1,284</p>
+                <p class="text-xs mt-2 text-emerald-600 font-semibold">
+                  <i class="fa-solid fa-arrow-up mr-1"></i>8.4%
+                  <span class="text-slate-400 font-normal">vs. last month</span>
+                </p>
+              </div>
+              <div class="w-11 h-11 rounded-xl bg-clinical-50 flex items-center justify-center">
+                <i class="fa-solid fa-users text-clinical-600"></i>
+              </div>
+            </div>
+          </article>
+
+          <article class="card-hover bg-white rounded-xl border border-slate-200 p-5 shadow-clinical">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Appointments Today
+                </p>
+                <p class="text-3xl font-bold text-slate-900 mt-2">24</p>
+                <p class="text-xs mt-2 text-clinical-600 font-semibold">
+                  7 remaining
+                  <span class="text-slate-400 font-normal">today</span>
+                </p>
+              </div>
+              <div class="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center">
+                <i class="fa-solid fa-calendar-check text-blue-600"></i>
+              </div>
+            </div>
+          </article>
+
+          <article class="card-hover bg-white rounded-xl border border-slate-200 p-5 shadow-clinical">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Pending Lab Results
+                </p>
+                <p class="text-3xl font-bold text-slate-900 mt-2">18</p>
+                <p class="text-xs mt-2 text-amber-600 font-semibold">
+                  5 high priority
+                </p>
+              </div>
+              <div class="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
+                <i class="fa-solid fa-flask-vial text-amber-600"></i>
+              </div>
+            </div>
+          </article>
+
+          <article class="card-hover bg-white rounded-xl border border-slate-200 p-5 shadow-clinical">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Clinical Notes
+                </p>
+                <p class="text-3xl font-bold text-slate-900 mt-2">37</p>
+                <p class="text-xs mt-2 text-slate-500">
+                  6 require signature
+                </p>
+              </div>
+              <div class="w-11 h-11 rounded-xl bg-purple-50 flex items-center justify-center">
+                <i class="fa-solid fa-file-signature text-purple-600"></i>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+          <!-- Chart -->
+          <section class="xl:col-span-2 bg-white rounded-xl border border-slate-200 shadow-clinical p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+              <div>
+                <h3 class="font-bold text-slate-800">Patient Analytics</h3>
+                <p class="text-xs text-slate-400 mt-1">Weekly patient encounters</p>
+              </div>
+
+              <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                <button
+                  class="chart-range px-3 py-1.5 text-xs rounded-md bg-white text-slate-700 font-semibold shadow-sm"
+                  data-range="week"
+                >
+                  Week
+                </button>
+                <button
+                  class="chart-range px-3 py-1.5 text-xs rounded-md text-slate-500 font-medium"
+                  data-range="month"
+                >
+                  Month
+                </button>
+              </div>
+            </div>
+
+            <div class="h-[280px]">
+              <canvas id="analyticsChart" aria-label="Patient analytics line chart"></canvas>
+            </div>
+          </section>
+
+          <!-- Schedule -->
+          <section class="bg-white rounded-xl border border-slate-200 shadow-clinical p-5">
+            <div class="flex items-center justify-between mb-5">
+              <div>
+                <h3 class="font-bold text-slate-800">Today's Schedule</h3>
+                <p class="text-xs text-slate-400 mt-1">Next appointments</p>
+              </div>
+              <button
+                class="text-xs font-semibold text-clinical-600 hover:text-clinical-800"
+                data-view="appointments"
+              >
+                View all
+              </button>
+            </div>
+
+            <div id="dashboardSchedule" class="space-y-3"></div>
+          </section>
+        </div>
+
+        <!-- Recent activity -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-clinical mt-5">
+          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 class="font-bold text-slate-800">Upcoming Appointments</h3>
+              <p class="text-xs text-slate-400 mt-1">Your next clinical encounters</p>
+            </div>
+            <button
+              class="text-sm font-semibold text-clinical-600 hover:text-clinical-800"
+              data-view="appointments"
+            >
+              Manage schedule <i class="fa-solid fa-arrow-right ml-1"></i>
+            </button>
+          </div>
+
+          <div class="table-scroll">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-xs uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th class="text-left px-5 py-3 font-semibold">Patient</th>
+                  <th class="text-left px-5 py-3 font-semibold">Department</th>
+                  <th class="text-left px-5 py-3 font-semibold">Doctor</th>
+                  <th class="text-left px-5 py-3 font-semibold">Time</th>
+                  <th class="text-left px-5 py-3 font-semibold">Status</th>
+                </tr>
+              </thead>
+              <tbody id="upcomingTable" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- PATIENT DIRECTORY -->
+      <!-- ========================================================= -->
+      <section id="view-patients" class="view" aria-labelledby="patients-heading">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+          <div>
+            <p class="text-sm font-semibold text-clinical-600 mb-1">Patient Management</p>
+            <h2 id="patients-heading" class="text-2xl sm:text-3xl font-bold text-slate-900">
+              Patient Directory
+            </h2>
+            <p class="text-sm text-slate-500 mt-1">
+              Search and review patient clinical records.
+            </p>
+          </div>
+
+          <button
+            id="addPatientButton"
+            class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-clinical-600 text-white text-sm font-semibold hover:bg-clinical-700"
+          >
+            <i class="fa-solid fa-user-plus"></i>
+            Register Patient
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 shadow-clinical">
+          <div class="p-5 border-b border-slate-100">
+            <div class="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+              <div class="relative flex-1 max-w-xl">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input
+                  id="patientSearch"
+                  type="search"
+                  placeholder="Search by name, condition, status, or ID..."
+                  class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-clinical-400 outline-none text-sm"
+                  aria-label="Search patient directory"
+                />
+              </div>
+
+              <div class="flex gap-2">
+                <select
+                  id="statusFilter"
+                  class="px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 bg-white"
+                  aria-label="Filter patients by status"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="Stable">Stable</option>
+                  <option value="Monitoring">Monitoring</option>
+                  <option value="Critical">Critical</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-scroll">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-xs uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th class="text-left px-5 py-3 font-semibold">Patient</th>
+                  <th class="text-left px-5 py-3 font-semibold">Age</th>
+                  <th class="text-left px-5 py-3 font-semibold">Condition</th>
+                  <th class="text-left px-5 py-3 font-semibold">Last Visit</th>
+                  <th class="text-left px-5 py-3 font-semibold">Status</th>
+                  <th class="text-right px-5 py-3 font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody id="patientTable" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+
+          <div class="px-5 py-4 border-t border-slate-100 flex items-center justify-between">
+            <p id="patientCount" class="text-xs text-slate-500"></p>
+            <div class="flex gap-1">
+              <button class="w-8 h-8 rounded-md border border-slate-200 text-slate-400" disabled>
+                <i class="fa-solid fa-chevron-left text-xs"></i>
+              </button>
+              <button class="w-8 h-8 rounded-md bg-clinical-600 text-white text-xs font-semibold">1</button>
+              <button class="w-8 h-8 rounded-md border border-slate-200 text-slate-500 text-xs">2</button>
+              <button class="w-8 h-8 rounded-md border border-slate-200 text-slate-500 text-xs">3</button>
+              <button class="w-8 h-8 rounded-md border border-slate-200 text-slate-500">
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- APPOINTMENTS -->
+      <!-- ========================================================= -->
+      <section id="view-appointments" class="view" aria-labelledby="appointments-heading">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+          <div>
+            <p class="text-sm font-semibold text-clinical-600 mb-1">Scheduling</p>
+            <h2 id="appointments-heading" class="text-2xl sm:text-3xl font-bold text-slate-900">
+              Appointment Scheduler
+            </h2>
+            <p class="text-sm text-slate-500 mt-1">
+              Coordinate patient visits and clinical availability.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2 text-sm text-slate-500">
+            <i class="fa-regular fa-calendar text-clinical-600"></i>
+            September 2026
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+          <!-- Appointment Form -->
+          <section class="xl:col-span-1 bg-white rounded-xl border border-slate-200 shadow-clinical p-5">
+            <div class="flex items-center gap-3 mb-5">
+              <div class="w-10 h-10 rounded-lg bg-clinical-50 flex items-center justify-center">
+                <i class="fa-solid fa-calendar-plus text-clinical-600"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-slate-800">Book New Appointment</h3>
+                <p class="text-xs text-slate-400">Create a patient encounter</p>
+              </div>
+            </div>
+
+            <form id="appointmentForm" class="space-y-4" novalidate>
+              <div>
+                <label for="appointmentPatient" class="block text-xs font-semibold text-slate-600 mb-1.5">
+                  Patient Name <span class="text-red-500">*</span>
+                </label>
+                <input
+                  id="appointmentPatient"
+                  name="patient"
+                  type="text"
+                  required
+                  placeholder="e.g. Maria Santos"
+                  class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-clinical-400"
+                />
+                <p class="field-error hidden text-xs text-red-500 mt-1"></p>
+              </div>
+
+              <div>
+                <label for="department" class="block text-xs font-semibold text-slate-600 mb-1.5">
+                  Department <span class="text-red-500">*</span>
+                </label>
+                <select
+                  id="department"
+                  name="department"
+                  required
+                  class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-clinical-400"
+                >
+                  <option value="">Select department</option>
+                  <option>Cardiology</option>
+                  <option>Internal Medicine</option>
+                  <option>Neurology</option>
+                  <option>Orthopedics</option>
+                  <option>Pediatrics</option>
+                  <option>General Medicine</option>
+                </select>
+                <p class="field-error hidden text-xs text-red-500 mt-1"></p>
+              </div>
+
+              <div>
+                <label for="doctor" class="block text-xs font-semibold text-slate-600 mb-1.5">
+                  Doctor <span class="text-red-500">*</span>
+                </label>
+                <select
+                  id="doctor"
+                  name="doctor"
+                  required
+                  class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-clinical-400"
+                >
+                  <option value="">Select physician</option>
+                  <option>Dr. Elena Rivera</option>
+                  <option>Dr. Michael Chen</option>
+                  <option>Dr. Sofia Patel</option>
+                  <option>Dr. Daniel Cruz</option>
+                </select>
+                <p class="field-error hidden text-xs text-red-500 mt-1"></p>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label for="appointmentDate" class="block text-xs font-semibold text-slate-600 mb-1.5">
+                    Date <span class="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="appointmentDate"
+                    name="date"
+                    type="date"
+                    required
+                    class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-clinical-400"
+                  />
+                </div>
+
+                <div>
+                  <label for="appointmentTime" class="block text-xs font-semibold text-slate-600 mb-1.5">
+                    Time <span class="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="appointmentTime"
+                    name="time"
+                    type="time"
+                    required
+                    class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-clinical-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label for="appointmentReason" class="block text-xs font-semibold text-slate-600 mb-1.5">
+                  Visit Reason
+                </label>
+                <textarea
+                  id="appointmentReason"
+                  rows="3"
+                  placeholder="Brief reason for consultation..."
+                  class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-clinical-400 resize-none"
+                ></textarea>
+              </div>
+
+              <button
+                type="submit"
+                class="w-full py-3 rounded-lg bg-clinical-600 hover:bg-clinical-700 text-white text-sm font-bold transition"
+              >
+                <i class="fa-solid fa-calendar-check mr-2"></i>
+                Confirm Appointment
+              </button>
+            </form>
+          </section>
+
+          <!-- Schedule -->
+          <section class="xl:col-span-2 bg-white rounded-xl border border-slate-200 shadow-clinical">
+            <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 class="font-bold text-slate-800">Upcoming Schedule</h3>
+                <p class="text-xs text-slate-400 mt-1">September 7–11, 2026</p>
+              </div>
+
+              <div class="flex gap-2">
+                <button
+                  id="schedulePrev"
+                  class="w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"
+                  aria-label="Previous schedule"
+                >
+                  <i class="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+                <button
+                  id="scheduleToday"
+                  class="px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Today
+                </button>
+                <button
+                  id="scheduleNext"
+                  class="w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"
+                  aria-label="Next schedule"
+                >
+                  <i class="fa-solid fa-chevron-right text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+            <div id="appointmentSchedule" class="p-5 space-y-3"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- CLINICAL NOTES -->
+      <!-- ========================================================= -->
+      <section id="view-clinical-notes" class="view" aria-labelledby="notes-heading">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+          <div>
+            <p class="text-sm font-semibold text-clinical-600 mb-1">Electronic Health Record</p>
+            <h2 id="notes-heading" class="text-2xl sm:text-3xl font-bold text-slate-900">
+              Clinical Notes
+            </h2>
+            <p class="text-sm text-slate-500 mt-1">
+              Document subjective and objective clinical observations.
+            </p>
+          </div>
+
+          <span class="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-lg">
+            <span class="status-dot bg-emerald-500"></span>
+            Autosave enabled
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-4 gap-5">
+          <aside class="xl:col-span-1 bg-white rounded-xl border border-slate-200 shadow-clinical">
+            <div class="p-4 border-b border-slate-100">
+              <label class="relative block">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input
+                  type="search"
+                  placeholder="Find patient..."
+                  class="w-full pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"
+                />
+              </label>
+            </div>
+
+            <div class="p-2 space-y-1">
+              <button class="w-full p-3 rounded-lg bg-clinical-50 border border-clinical-100 text-left">
+                <div class="flex items-center gap-3">
+                  <div class="avatar w-9 h-9 bg-blue-100 text-blue-700 text-xs">MS</div>
+                  <div>
+                    <p class="text-sm font-semibold text-slate-800">Maria Santos</p>
+                    <p class="text-[11px] text-slate-400">MRN-20481 · 42 yrs</p>
+                  </div>
+                </div>
+              </button>
+
+              <button class="w-full p-3 rounded-lg hover:bg-slate-50 text-left">
+                <div class="flex items-center gap-3">
+                  <div class="avatar w-9 h-9 bg-purple-100 text-purple-700 text-xs">JC</div>
+                  <div>
+                    <p class="text-sm font-semibold text-slate-800">James Carter</p>
+                    <p class="text-[11px] text-slate-400">MRN-19214 · 57 yrs</p>
+                  </div>
+                </div>
+              </button>
+
+              <button class="w-full p-3 rounded-lg hover:bg-slate-50 text-left">
+                <div class="flex items-center gap-3">
+                  <div class="avatar w-9 h-9 bg-amber-100 text-amber-700 text-xs">AL</div>
+                  <div>
+                    <p class="text-sm font-semibold text-slate-800">Anna Lim</p>
+                    <p class="text-[11px] text-slate-400">MRN-22630 · 29 yrs</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </aside>
+
+          <section class="xl:col-span-3 bg-white rounded-xl border border-slate-200 shadow-clinical overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-3">
+                  <div class="avatar w-10 h-10 bg-blue-100 text-blue-700 text-sm">MS</div>
+                  <div>
+                    <h3 class="font-bold text-slate-800">Maria Santos</h3>
+                    <p class="text-xs text-slate-400">MRN-20481 · Follow-up consultation</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex gap-2">
+                <button
+                  id="saveNoteButton"
+                  class="px-3 py-2 rounded-lg bg-clinical-600 text-white text-xs font-semibold hover:bg-clinical-700"
+                >
+                  <i class="fa-solid fa-floppy-disk mr-1"></i>
+                  Save Note
+                </button>
+                <button
+                  id="signNoteButton"
+                  class="px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50"
+                >
+                  <i class="fa-solid fa-signature mr-1"></i>
+                  Sign
+                </button>
+              </div>
+            </div>
+
+            <!-- Note toolbar -->
+            <div class="px-5 py-3 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-1">
+              <button class="editor-tool w-8 h-8 rounded hover:bg-white text-slate-600 font-bold" data-command="bold" aria-label="Bold">
+                B
+              </button>
+              <button class="editor-tool w-8 h-8 rounded hover:bg-white text-slate-600 italic" data-command="italic" aria-label="Italic">
+                I
+              </button>
+              <button class="editor-tool w-8 h-8 rounded hover:bg-white text-slate-600 underline" data-command="underline" aria-label="Underline">
+                U
+              </button>
+              <span class="w-px h-6 bg-slate-200 mx-1"></span>
+              <button class="editor-tool w-8 h-8 rounded hover:bg-white text-slate-600" data-command="insertUnorderedList" aria-label="Bullet list">
+                <i class="fa-solid fa-list-ul text-xs"></i>
+              </button>
+              <button class="editor-tool w-8 h-8 rounded hover:bg-white text-slate-600" data-command="insertOrderedList" aria-label="Numbered list">
+                <i class="fa-solid fa-list-ol text-xs"></i>
+              </button>
+            </div>
+
+            <div class="p-5">
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <div class="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                  <p class="text-[10px] uppercase font-bold text-slate-400">BP</p>
+                  <p class="vital-value text-lg font-bold text-slate-800 mt-1">128/78 <span class="text-xs font-normal text-slate-400">mmHg</span></p>
+                </div>
+                <div class="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                  <p class="text-[10px] uppercase font-bold text-slate-400">Heart Rate</p>
+                  <p class="vital-value text-lg font-bold text-slate-800 mt-1">74 <span class="text-xs font-normal text-slate-400">bpm</span></p>
+                </div>
+                <div class="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                  <p class="text-[10px] uppercase font-bold text-slate-400">SpO₂</p>
+                  <p class="vital-value text-lg font-bold text-slate-800 mt-1">98 <span class="text-xs font-normal text-slate-400">%</span></p>
+                </div>
+                <div class="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                  <p class="text-[10px] uppercase font-bold text-slate-400">Temp.</p>
+                  <p class="vital-value text-lg font-bold text-slate-800 mt-1">36.7 <span class="text-xs font-normal text-slate-400">°C</span></p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+                <div>
+                  <label class="block text-xs font-bold uppercase tracking-wider text-clinical-700 mb-2">
+                    Subjective
+                  </label>
+                  <div
+                    id="subjectiveEditor"
+                    contenteditable="true"
+                    role="textbox"
+                    aria-label="Subjective clinical observations"
+                    class="min-h-[150px] border border-slate-200 rounded-lg p-4 text-sm text-slate-700 leading-relaxed outline-none focus:border-clinical-400"
+                  >Patient reports improved exercise tolerance since previous visit. Denies chest pain, dizziness, or syncope. Reports adherence to prescribed medication regimen.</div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold uppercase tracking-wider text-clinical-700 mb-2">
+                    Objective
+                  </label>
+                  <div
+                    id="objectiveEditor"
+                    contenteditable="true"
+                    role="textbox"
+                    aria-label="Objective clinical observations"
+                    class="min-h-[150px] border border-slate-200 rounded-lg p-4 text-sm text-slate-700 leading-relaxed outline-none focus:border-clinical-400"
+                  >Patient alert and oriented. Cardiovascular examination regular rate and rhythm. No peripheral edema. Respiratory examination clear bilaterally.</div>
+                </div>
+              </div>
+
+              <div class="mb-5">
+                <label class="block text-xs font-bold uppercase tracking-wider text-clinical-700 mb-2">
+                  Assessment & Plan
+                </label>
+                <div
+                  id="assessmentEditor"
+                  contenteditable="true"
+                  role="textbox"
+                  aria-label="Assessment and plan"
+                  class="min-h-[130px] border border-slate-200 rounded-lg p-4 text-sm text-slate-700 leading-relaxed outline-none focus:border-clinical-400"
+                >Stable clinical status. Continue current management and lifestyle recommendations. Follow-up in 4 weeks or earlier if symptoms worsen.</div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-clinical-700 mb-2">
+                  Prescription / Orders
+                </label>
+                <div class="border border-slate-200 rounded-lg overflow-hidden">
+                  <div class="grid grid-cols-1 md:grid-cols-4 bg-slate-50 text-[10px] uppercase font-bold text-slate-400">
+                    <div class="p-3">Medication</div>
+                    <div class="p-3">Dose</div>
+                    <div class="p-3">Frequency</div>
+                    <div class="p-3">Duration</div>
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+                    <input class="p-3 text-sm outline-none" value="Example medication" aria-label="Medication" />
+                    <input class="p-3 text-sm outline-none" value="As directed" aria-label="Dose" />
+                    <input class="p-3 text-sm outline-none" value="Once daily" aria-label="Frequency" />
+                    <input class="p-3 text-sm outline-none" value="30 days" aria-label="Duration" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- PHYSIOLOGY REFERENCE -->
+      <!-- ========================================================= -->
+      <section id="view-physiology" class="view" aria-labelledby="physiology-heading">
+        <div class="mb-6">
+          <p class="text-sm font-semibold text-clinical-600 mb-1">Clinical Education</p>
+          <h2 id="physiology-heading" class="text-2xl sm:text-3xl font-bold text-slate-900">
+            Physiology Reference
+          </h2>
+          <p class="text-sm text-slate-500 mt-1">
+            Interactive reference for skeletal muscle contraction and sarcomere anatomy.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+          <section class="xl:col-span-2 bg-white rounded-xl border border-slate-200 shadow-clinical overflow-hidden">
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 class="font-bold text-slate-800">Sarcomere Structure</h3>
+                <p class="text-xs text-slate-400 mt-1">
+                  Sliding-filament model of muscle contraction
+                </p>
+              </div>
+              <span class="text-xs font-semibold bg-clinical-50 text-clinical-700 px-3 py-1.5 rounded-full">
+                Reference
+              </span>
+            </div>
+
+            <div class="p-4 sm:p-7 medical-grid">
+              <div class="relative bg-white rounded-xl border border-slate-100 p-4 sm:p-7 overflow-hidden">
+                <!-- Simplified clinical SVG sarcomere diagram -->
+                <svg
+                  viewBox="0 0 1000 470"
+                  class="w-full h-auto"
+                  role="img"
+                  aria-label="Simplified sarcomere diagram showing thin actin filaments, thick myosin filaments, Z discs, and sarcomere boundaries"
+                >
+                  <defs>
+                    <linearGradient id="actinGradient" x1="0" x2="1">
+                      <stop offset="0%" stop-color="#ef9da4"/>
+                      <stop offset="100%" stop-color="#f6b7bd"/>
+                    </linearGradient>
+                    <linearGradient id="myosinGradient" x1="0" x2="1">
+                      <stop offset="0%" stop-color="#ec888e"/>
+                      <stop offset="100%" stop-color="#f2a0a4"/>
+                    </linearGradient>
+                  </defs>
+
+                  <!-- Sarcomere boundaries -->
+                  <rect x="75" y="45" width="12" height="350" rx="4" fill="#f49a9f"/>
+                  <rect x="913" y="45" width="12" height="350" rx="4" fill="#f49a9f"/>
+
+                  <!-- Z labels -->
+                  <text x="55" y="30" font-size="18" font-weight="700" fill="#496879">Z disc</text>
+                  <text x="875" y="30" font-size="18" font-weight="700" fill="#496879">Z disc</text>
+
+                  <!-- Actin left upper -->
+                  <g>
+                    <path d="M88 100 C180 75, 245 125, 345 100" fill="none" stroke="#437ca4" stroke-width="7"/>
+                    <path d="M88 108 C180 83, 245 133, 345 108" fill="none" stroke="#78a8c7" stroke-width="4"/>
+
+                    <g fill="#f4b0b5" opacity="0.9">
+                      <circle cx="110" cy="103" r="18"/>
+                      <circle cx="140" cy="96" r="18"/>
+                      <circle cx="170" cy="91" r="18"/>
+                      <circle cx="200" cy="93" r="18"/>
+                      <circle cx="230" cy="101" r="18"/>
+                      <circle cx="260" cy="108" r="18"/>
+                      <circle cx="290" cy="110" r="18"/>
+                      <circle cx="320" cy="106" r="18"/>
+                    </g>
+                  </g>
+
+                  <!-- Actin right upper -->
+                  <g transform="translate(655,0)">
+                    <path d="M0 108 C100 133, 165 83, 255 108" fill="none" stroke="#437ca4" stroke-width="7"/>
+                    <path d="M0 116 C100 141, 165 91, 255 116" fill="none" stroke="#78a8c7" stroke-width="4"/>
+
+                    <g fill="#f4b0b5" opacity="0.9">
+                      <circle cx="20" cy="110" r="18"/>
+                      <circle cx="50" cy="108" r="18"/>
+                      <circle cx="80" cy="110" r="18"/>
+                      <circle cx="110" cy="101" r="18"/>
+                      <circle cx="140" cy="93" r="18"/>
+                      <circle cx="170" cy="91" r="18"/>
+                      <circle cx="200" cy="96" r="18"/>
+                      <circle cx="230" cy="103" r="18"/>
+                    </g>
+                  </g>
+
+                  <!-- Actin lower left -->
+                  <g transform="translate(0,230)">
+                    <path d="M88 108 C180 133, 245 83, 345 108" fill="none" stroke="#437ca4" stroke-width="7"/>
+                    <path d="M88 116 C180 141, 245 91, 345 116" fill="none" stroke="#78a8c7" stroke-width="4"/>
+                    <g fill="#f4b0b5" opacity="0.9">
+                      <circle cx="110" cy="110" r="18"/>
+                      <circle cx="140" cy="108" r="18"/>
+                      <circle cx="170" cy="110" r="18"/>
+                      <circle cx="200" cy="101" r="18"/>
+                      <circle cx="230" cy="93" r="18"/>
+                      <circle cx="260" cy="91" r="18"/>
+                      <circle cx="290" cy="96" r="18"/>
+                      <circle cx="320" cy="103" r="18"/>
+                    </g>
+                  </g>
+
+                  <!-- Actin lower right -->
+                  <g transform="translate(655,230)">
+                    <path d="M0 100 C100 75, 165 125, 255 100" fill="none" stroke="#437ca4" stroke-width="7"/>
+                    <path d="M0 108 C100 83, 165 133, 255 108" fill="none" stroke="#78a8c7" stroke-width="4"/>
+                    <g fill="#f4b0b5" opacity="0.9">
+                      <circle cx="20" cy="103" r="18"/>
+                      <circle cx="50" cy="96" r="18"/>
+                      <circle cx="80" cy="91" r="18"/>
+                      <circle cx="110" cy="93" r="18"/>
+                      <circle cx="140" cy="101" r="18"/>
+                      <circle cx="170" cy="108" r="18"/>
+                      <circle cx="200" cy="110" r="18"/>
+                      <circle cx="230" cy="106" r="18"/>
+                    </g>
+                  </g>
+
+                  <!-- Thick myosin -->
+                  <g>
+                    <rect x="330" y="190" width="340" height="85" rx="18" fill="url(#myosinGradient)" opacity="0.95"/>
+                    <rect x="365" y="205" width="270" height="55" rx="15" fill="#ef9a9f"/>
+
+                    <!-- Myosin heads -->
+                    <g fill="#e77980">
+                      <path d="M360 205 Q340 165 320 178 Q310 187 322 198 L345 225 Z"/>
+                      <path d="M405 205 Q385 160 365 177 Q355 186 367 198 L390 225 Z"/>
+                      <path d="M450 205 Q430 160 410 177 Q400 186 412 198 L435 225 Z"/>
+                      <path d="M495 205 Q475 160 455 177 Q445 186 457 198 L480 225 Z"/>
+                      <path d="M540 205 Q520 160 500 177 Q490 186 502 198 L525 225 Z"/>
+                      <path d="M585 205 Q565 160 545 177 Q535 186 547 198 L570 225 Z"/>
+
+                      <path d="M360 260 Q340 300 320 287 Q310 278 322 267 L345 240 Z"/>
+                      <path d="M405 260 Q385 305 365 288 Q355 279 367 267 L390 240 Z"/>
+                      <path d="M450 260 Q430 305 410 288 Q400 279 412 267 L435 240 Z"/>
+                      <path d="M495 260 Q475 305 455 288 Q445 279 457 267 L480 240 Z"/>
+                      <path d="M540 260 Q520 305 500 288 Q490 279 502 267 L525 240 Z"/>
+                      <path d="M585 260 Q565 305 545 288 Q535 279 547 267 L570 240 Z"/>
+                    </g>
+                  </g>
+
+                  <!-- Titin -->
+                  <path
+                    d="M90 170 Q120 150 150 170 T210 170 T270 170 T330 170
+                       M670 170 Q700 150 730 170 T790 170 T850 170 T910 170"
+                    fill="none"
+                    stroke="#8b88c6"
+                    stroke-width="6"
+                    stroke-linecap="round"
+                  />
+
+                  <path
+                    d="M90 300 Q120 320 150 300 T210 300 T270 300 T330 300
+                       M670 300 Q700 320 730 300 T790 300 T850 300 T910 300"
+                    fill="none"
+                    stroke="#8b88c6"
+                    stroke-width="6"
+                    stroke-linecap="round"
+                  />
+
+                  <!-- Center line -->
+                  <line x1="500" y1="130" x2="500" y2="335" stroke="#7f8c94" stroke-width="2" stroke-dasharray="5 6"/>
+
+                  <!-- Labels -->
+                  <g font-family="Inter, Arial, sans-serif">
+                    <text x="190" y="65" text-anchor="middle" font-size="20" font-weight="700" fill="#327aa0">
+                      Thin filament
+                    </text>
+                    <text x="500" y="350" text-anchor="middle" font-size="20" font-weight="700" fill="#d16f77">
+                      Thick filament / myosin
+                    </text>
+                    <text x="500" y="405" text-anchor="middle" font-size="22" font-weight="700" fill="#47718a">
+                      Sarcomere
+                    </text>
+                  </g>
+                </svg>
+              </div>
+            </div>
+          </section>
+
+          <aside class="space-y-5">
+            <section class="bg-white rounded-xl border border-slate-200 shadow-clinical p-5">
+              <h3 class="font-bold text-slate-800 mb-4">Key Structures</h3>
+
+              <div class="space-y-4">
+                <button class="physiology-tab w-full text-left p-3 rounded-lg bg-clinical-50 border border-clinical-100" data-topic="actin">
+                  <div class="flex gap-3">
+                    <span class="w-3 h-3 rounded-full bg-blue-500 mt-1.5"></span>
+                    <div>
+                      <p class="text-sm font-bold text-slate-800">Thin Filament</p>
+                      <p class="text-xs text-slate-500 mt-1">Primarily composed of actin.</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button class="physiology-tab w-full text-left p-3 rounded-lg hover:bg-slate-50" data-topic="myosin">
+                  <div class="flex gap-3">
+                    <span class="w-3 h-3 rounded-full bg-red-400 mt-1.5"></span>
+                    <div>
+                      <p class="text-sm font-bold text-slate-800">Thick Filament</p>
+                      <p class="text-xs text-slate-500 mt-1">Contains myosin motor proteins.</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button class="physiology-tab w-full text-left p-3 rounded-lg hover:bg-slate-50" data-topic="zdisc">
+                  <div class="flex gap-3">
+                    <span class="w-3 h-3 rounded-full bg-rose-300 mt-1.5"></span>
+                    <div>
+                      <p class="text-sm font-bold text-slate-800">Z Disc</p>
+                      <p class="text-xs text-slate-500 mt-1">Defines the boundaries of a sarcomere.</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button class="physiology-tab w-full text-left p-3 rounded-lg hover:bg-slate-50" data-topic="titin">
+                  <div class="flex gap-3">
+                    <span class="w-3 h-3 rounded-full bg-indigo-300 mt-1.5"></span>
+                    <div>
+                      <p class="text-sm font-bold text-slate-800">Titin</p>
+                      <p class="text-xs text-slate-500 mt-1">Provides elastic structural support.</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </section>
+
+            <section class="bg-[#123847] rounded-xl p-5 text-white shadow-clinical">
+              <div class="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center mb-4">
+                <i class="fa-solid fa-lightbulb text-clinical-300"></i>
+              </div>
+              <h3 class="font-bold">Clinical Concept</h3>
+              <p id="physiologyDescription" class="text-sm text-slate-300 leading-relaxed mt-2">
+                During contraction, myosin heads interact with actin and generate force through the sliding-filament mechanism. The filaments themselves do not significantly shorten; their relative overlap changes.
+              </p>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- LABORATORY -->
+      <!-- ========================================================= -->
+      <section id="view-labs" class="view" aria-labelledby="labs-heading">
+        <div class="mb-6">
+          <p class="text-sm font-semibold text-clinical-600 mb-1">Diagnostics</p>
+          <h2 id="labs-heading" class="text-2xl sm:text-3xl font-bold text-slate-900">
+            Laboratory Results
+          </h2>
+          <p class="text-sm text-slate-500 mt-1">
+            Review recent laboratory activity and pending investigations.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-clinical p-5">
+            <p class="text-xs uppercase font-bold tracking-wider text-slate-400">Pending</p>
+            <p class="text-3xl font-bold text-slate-900 mt-2">18</p>
+            <p class="text-xs text-amber-600 mt-1">5 priority results</p>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 shadow-clinical p-5">
+            <p class="text-xs uppercase font-bold tracking-wider text-slate-400">Completed Today</p>
+            <p class="text-3xl font-bold text-slate-900 mt-2">43</p>
+            <p class="text-xs text-emerald-600 mt-1">+12% vs. yesterday</p>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 shadow-clinical p-5">
+            <p class="text-xs uppercase font-bold tracking-wider text-slate-400">Critical Flags</p>
+            <p class="text-3xl font-bold text-slate-900 mt-2">3</p>
+            <p class="text-xs text-red-600 mt-1">Requires clinical review</p>
+          </div>
+        </div>
+
+        <section class="bg-white rounded-xl border border-slate-200 shadow-clinical overflow-hidden">
+          <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+            <div>
+              <h3 class="font-bold text-slate-800">Recent Results</h3>
+              <p class="text-xs text-slate-400 mt-1">Latest diagnostic reports</p>
+            </div>
+            <select class="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              <option>All Tests</option>
+              <option>Hematology</option>
+              <option>Biochemistry</option>
+              <option>Immunology</option>
+            </select>
+          </div>
+
+          <div class="table-scroll">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-xs uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th class="text-left px-5 py-3">Patient</th>
+                  <th class="text-left px-5 py-3">Test</th>
+                  <th class="text-left px-5 py-3">Collected</th>
+                  <th class="text-left px-5 py-3">Result</th>
+                  <th class="text-left px-5 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr>
+                  <td class="px-5 py-4 font-semibold">Maria Santos</td>
+                  <td class="px-5 py-4 text-slate-600">CBC</td>
+                  <td class="px-5 py-4 text-slate-500">Sep 7, 08:12</td>
+                  <td class="px-5 py-4 text-slate-600">Within reference</td>
+                  <td class="px-5 py-4"><span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">Reviewed</span></td>
+                </tr>
+                <tr>
+                  <td class="px-5 py-4 font-semibold">James Carter</td>
+                  <td class="px-5 py-4 text-slate-600">HbA1c</td>
+                  <td class="px-5 py-4 text-slate-500">Sep 7, 09:40</td>
+                  <td class="px-5 py-4 text-slate-600">6.8%</td>
+                  <td class="px-5 py-4"><span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">Pending Review</span></td>
+                </tr>
+                <tr>
+                  <td class="px-5 py-4 font-semibold">Anna Lim</td>
+                  <td class="px-5 py-4 text-slate-600">Lipid Panel</td>
+                  <td class="px-5 py-4 text-slate-500">Sep 7, 10:15</td>
+                  <td class="px-5 py-4 text-slate-600">LDL elevated</td>
+                  <td class="px-5 py-4"><span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-700">Priority</span></td>
+                </tr>
+                <tr>
+                  <td class="px-5 py-4 font-semibold">Robert Lee</td>
+                  <td class="px-5 py-4 text-slate-600">CMP</td>
+                  <td class="px-5 py-4 text-slate-500">Sep 7, 11:02</td>
+                  <td class="px-5 py-4 text-slate-600">Within reference</td>
+                  <td class="px-5 py-4"><span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">Reviewed</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- PATIENT DETAILS MODAL -->
+  <!-- ============================================================= -->
+  <div
+    id="patientModal"
+    class="modal-backdrop fixed inset-0 z-[80] bg-slate-950/50 flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="patientModalTitle"
+  >
+    <div class="modal-panel w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl">
+      <div class="px-5 sm:px-7 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+        <div class="flex items-center gap-3">
+          <div id="modalAvatar" class="avatar w-12 h-12 bg-clinical-100 text-clinical-700">MS</div>
+          <div>
+            <h2 id="patientModalTitle" class="font-bold text-lg text-slate-900">Maria Santos</h2>
+            <p id="modalPatientId" class="text-xs text-slate-400">MRN-20481</p>
+          </div>
+        </div>
+        <button
+          id="closePatientModal"
+          class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500"
+          aria-label="Close patient details"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-5 sm:p-7">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div class="p-3 rounded-lg bg-slate-50">
+            <p class="text-[10px] uppercase font-bold text-slate-400">Age</p>
+            <p id="modalAge" class="font-bold text-slate-800 mt-1">42</p>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-50">
+            <p class="text-[10px] uppercase font-bold text-slate-400">Sex</p>
+            <p id="modalSex" class="font-bold text-slate-800 mt-1">Female</p>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-50">
+            <p class="text-[10px] uppercase font-bold text-slate-400">Blood Type</p>
+            <p id="modalBlood" class="font-bold text-slate-800 mt-1">O+</p>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-50">
+            <p class="text-[10px] uppercase font-bold text-slate-400">Status</p>
+            <p id="modalStatus" class="font-bold text-emerald-700 mt-1">Stable</p>
+          </div>
+        </div>
+
+        <div class="space-y-6">
+          <section>
+            <h3 class="text-xs uppercase tracking-wider font-bold text-clinical-700 mb-3">
+              Primary Condition
+            </h3>
+            <div class="border border-slate-200 rounded-lg p-4">
+              <p id="modalCondition" class="font-semibold text-slate-800">Hypertension</p>
+              <p id="modalConditionDetail" class="text-sm text-slate-500 mt-1">
+                Essential hypertension under routine outpatient management.
+              </p>
+            </div>
+          </section>
+
+          <section>
+            <h3 class="text-xs uppercase tracking-wider font-bold text-clinical-700 mb-3">
+              Medical History
+            </h3>
+            <div class="border border-slate-200 rounded-lg divide-y divide-slate-100">
+              <div class="p-4 flex gap-4">
+                <span class="text-xs text-slate-400 w-20">2026</span>
+                <p id="modalHistory" class="text-sm text-slate-600">
+                  Follow-up consultation. Blood pressure improved with adherence to current treatment plan.
+                </p>
+              </div>
+              <div class="p-4 flex gap-4">
+                <span class="text-xs text-slate-400 w-20">2025</span>
+                <p class="text-sm text-slate-600">
+                  Initial diagnosis documented during routine health screening.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h3 class="text-xs uppercase tracking-wider font-bold text-clinical-700 mb-3">
+              Current Medications
+            </h3>
+            <div id="modalMedications" class="flex flex-wrap gap-2">
+              <span class="text-xs px-3 py-1.5 rounded-full bg-clinical-50 text-clinical-700 border border-clinical-100">
+                Medication A · Once daily
+              </span>
+              <span class="text-xs px-3 py-1.5 rounded-full bg-slate-50 text-slate-600 border border-slate-100">
+                Medication B · As directed
+              </span>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="px-5 sm:px-7 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
+        <button
+          id="modalClinicalNote"
+          class="px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-600 text-sm font-semibold hover:bg-slate-100"
+        >
+          <i class="fa-solid fa-file-medical mr-1"></i>
+          Clinical Notes
+        </button>
+        <button
+          id="modalAppointment"
+          class="px-4 py-2.5 rounded-lg bg-clinical-600 text-white text-sm font-semibold hover:bg-clinical-700"
+        >
+          <i class="fa-solid fa-calendar-plus mr-1"></i>
+          Schedule Visit
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- REGISTER PATIENT MODAL -->
+  <!-- ============================================================= -->
+  <div
+    id="registerModal"
+    class="modal-backdrop fixed inset-0 z-[80] bg-slate-950/50 flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="registerModalTitle"
+  >
+    <div class="modal-panel w-full max-w-lg bg-white rounded-2xl shadow-2xl">
+      <div class="px-5 py-5 border-b border-slate-100 flex justify-between items-center">
+        <div>
+          <h2 id="registerModalTitle" class="font-bold text-lg text-slate-900">Register Patient</h2>
+          <p class="text-xs text-slate-400 mt-1">Add a new patient to the directory</p>
+        </div>
+        <button
+          id="closeRegisterModal"
+          class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500"
+          aria-label="Close registration dialog"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="registerForm" class="p-5 space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="newPatientName">
+              Full Name *
+            </label>
+            <input
+              id="newPatientName"
+              required
+              class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-clinical-400"
+              placeholder="Full patient name"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="newPatientAge">
+              Age *
+            </label>
+            <input
+              id="newPatientAge"
+              type="number"
+              min="0"
+              max="120"
+              required
+              class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-clinical-400"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="newPatientSex">
+              Sex *
+            </label>
+            <select
+              id="newPatientSex"
+              required
+              class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white"
+            >
+              <option value="">Select</option>
+              <option>Female</option>
+              <option>Male</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="newPatientCondition">
+              Primary Condition *
+            </label>
+            <input
+              id="newPatientCondition"
+              required
+              class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-clinical-400"
+              placeholder="Primary diagnosis or reason for care"
+            />
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            id="cancelRegister"
+            class="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="px-4 py-2.5 rounded-lg bg-clinical-600 text-white text-sm font-semibold hover:bg-clinical-700"
+          >
+            Register Patient
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div
+    id="toast"
+    class="toast fixed right-4 bottom-5 z-[100] w-[calc(100%-2rem)] max-w-sm"
+    role="status"
+    aria-live="polite"
+  >
+    <div class="bg-white border border-slate-200 rounded-xl shadow-2xl p-4 flex items-start gap-3">
+      <div id="toastIcon" class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+        <i class="fa-solid fa-check"></i>
+      </div>
+      <div class="min-w-0">
+        <p id="toastTitle" class="font-bold text-sm text-slate-800">Success</p>
+        <p id="toastMessage" class="text-xs text-slate-500 mt-1">Action completed successfully.</p>
+      </div>
+      <button
+        id="closeToast"
+        class="ml-auto text-slate-400 hover:text-slate-600"
+        aria-label="Close notification"
+      >
+        <i class="fa-solid fa-xmark text-xs"></i>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    /* ================================================================
+       MEDAXIS CLINICAL PLATFORM
+       Vanilla JavaScript application state and interactions
+       ================================================================ */
+
+    const state = {
+      currentView: "dashboard",
+      selectedPatient: null,
+      appointments: [
+        {
+          id: 1,
+          patient: "Maria Santos",
+          department: "Cardiology",
+          doctor: "Dr. Elena Rivera",
+          time: "08:30",
+          date: "2026-09-07",
+          status: "Confirmed",
+          reason: "Follow-up consultation"
+        },
+        {
+          id: 2,
+          patient: "James Carter",
+          department: "Internal Medicine",
+          doctor: "Dr. Michael Chen",
+          time: "09:15",
+          date: "2026-09-07",
+          status: "Confirmed",
+          reason: "Routine evaluation"
+        },
+        {
+          id: 3,
+          patient: "Anna Lim",
+          department: "Neurology",
+          doctor: "Dr. Sofia Patel",
+          time: "10:30",
+          date: "2026-09-07",
+          status: "Checked in",
+          reason: "Neurological assessment"
+        },
+        {
+          id: 4,
+          patient: "Robert Lee",
+          department: "Orthopedics",
+          doctor: "Dr. Daniel Cruz",
+          time: "13:00",
+          date: "2026-09-07",
+          status: "Confirmed",
+          reason: "Mobility follow-up"
+        },
+        {
+          id: 5,
+          patient: "Emily Wong",
+          department: "Pediatrics",
+          doctor: "Dr. Sofia Patel",
+          time: "14:30",
+          date: "2026-09-07",
+          status: "Confirmed",
+          reason: "Follow-up"
+        },
+        {
+          id: 6,
+          patient: "David Garcia",
+          department: "General Medicine",
+          doctor: "Dr. Elena Rivera",
+          time: "16:00",
+          date: "2026-09-07",
+          status: "Confirmed",
+          reason: "Annual examination"
+        },
+        {
+          id: 7,
+          patient: "Nina Thompson",
+          department: "Cardiology",
+          doctor: "Dr. Elena Rivera",
+          time: "09:00",
+          date: "2026-09-08",
+          status: "Confirmed",
+          reason: "ECG review"
+        },
+        {
+          id: 8,
+          patient: "Thomas Brooks",
+          department: "Orthopedics",
+          doctor: "Dr. Daniel Cruz",
+          time: "11:00",
+          date: "2026-09-08",
+          status: "Confirmed",
+          reason: "Post-operative review"
         }
+      ],
 
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+      patients: [
+        {
+          id: "MRN-20481",
+          name: "Maria Santos",
+          age: 42,
+          sex: "Female",
+          blood: "O+",
+          condition: "Hypertension",
+          status: "Stable",
+          lastVisit: "Sep 7, 2026",
+          detail: "Essential hypertension under routine outpatient management.",
+          history: "Follow-up consultation. Blood pressure improved with adherence to current treatment plan.",
+          medications: ["Medication A · Once daily", "Medication B · As directed"]
+        },
+        {
+          id: "MRN-19214",
+          name: "James Carter",
+          age: 57,
+          sex: "Male",
+          blood: "A+",
+          condition: "Type 2 Diabetes",
+          status: "Monitoring",
+          lastVisit: "Sep 5, 2026",
+          detail: "Type 2 diabetes mellitus requiring continued glycemic monitoring.",
+          history: "HbA1c monitoring scheduled. Lifestyle and medication adherence discussed.",
+          medications: ["Metformin · Twice daily"]
+        },
+        {
+          id: "MRN-22630",
+          name: "Anna Lim",
+          age: 29,
+          sex: "Female",
+          blood: "B+",
+          condition: "Migraine",
+          status: "Stable",
+          lastVisit: "Sep 4, 2026",
+          detail: "Recurrent migraine without documented acute neurological deficit.",
+          history: "Reports reduced frequency of episodes over the previous month.",
+          medications: ["Preventive therapy · Daily", "PRN analgesic · As needed"]
+        },
+        {
+          id: "MRN-18107",
+          name: "Robert Lee",
+          age: 68,
+          sex: "Male",
+          blood: "O-",
+          condition: "Osteoarthritis",
+          status: "Monitoring",
+          lastVisit: "Sep 3, 2026",
+          detail: "Chronic knee osteoarthritis with ongoing mobility assessment.",
+          history: "Continues physical therapy and activity modification program.",
+          medications: ["Analgesic · As directed"]
+        },
+        {
+          id: "MRN-23591",
+          name: "Emily Wong",
+          age: 16,
+          sex: "Female",
+          blood: "AB+",
+          condition: "Asthma",
+          status: "Stable",
+          lastVisit: "Sep 2, 2026",
+          detail: "Intermittent asthma with no acute exacerbation reported.",
+          history: "No recent emergency visits. Inhaler technique reviewed.",
+          medications: ["Rescue inhaler · PRN"]
+        },
+        {
+          id: "MRN-17044",
+          name: "David Garcia",
+          age: 51,
+          sex: "Male",
+          blood: "A-",
+          condition: "Hyperlipidemia",
+          status: "Monitoring",
+          lastVisit: "Aug 30, 2026",
+          detail: "Elevated lipid levels under cardiovascular risk management.",
+          history: "Lipid panel ordered for treatment response assessment.",
+          medications: ["Lipid-lowering therapy · Daily"]
+        },
+        {
+          id: "MRN-24310",
+          name: "Nina Thompson",
+          age: 74,
+          sex: "Female",
+          blood: "O+",
+          condition: "Heart Failure",
+          status: "Critical",
+          lastVisit: "Aug 29, 2026",
+          detail: "Chronic heart failure requiring close clinical monitoring.",
+          history: "Recent symptoms prompted increased monitoring and cardiology follow-up.",
+          medications: ["Cardiac medication · Daily", "Diuretic · As directed"]
         }
+      ]
+    };
 
-        .control-group label {
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            display: flex;
-            justify-content: space-between;
+    const viewTitles = {
+      dashboard: "Dashboard Overview",
+      patients: "Patient Directory",
+      appointments: "Appointment Scheduler",
+      "clinical-notes": "Clinical Notes",
+      physiology: "Physiology Reference",
+      labs: "Laboratory Results"
+    };
+
+    const $ = (selector, parent = document) => parent.querySelector(selector);
+    const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
+
+    /* ================================================================
+       Navigation
+       ================================================================ */
+
+    function navigate(viewName) {
+      if (!document.getElementById(`view-${viewName}`)) return;
+
+      state.currentView = viewName;
+
+      $$(".view").forEach(view => {
+        view.classList.toggle("active", view.id === `view-${viewName}`);
+      });
+
+      $$(".nav-item").forEach(item => {
+        const active = item.dataset.view === viewName;
+        item.classList.toggle("active", active);
+
+        if (active) {
+          item.setAttribute("aria-current", "page");
+        } else {
+          item.removeAttribute("aria-current");
         }
+      });
 
-        .control-group label .val {
-            font-family: monospace;
+      $("#pageTitle").textContent = viewTitles[viewName] || "Clinical Workspace";
+
+      closeMobileSidebar();
+
+      if (viewName === "appointments") {
+        renderAppointments();
+      }
+
+      if (viewName === "patients") {
+        renderPatients();
+      }
+    }
+
+    $$(".nav-item").forEach(item => {
+      item.addEventListener("click", () => navigate(item.dataset.view));
+    });
+
+    $$("[data-view]").forEach(button => {
+      if (!button.classList.contains("nav-item")) {
+        button.addEventListener("click", () => navigate(button.dataset.view));
+      }
+    });
+
+    /* ================================================================
+       Mobile sidebar
+       ================================================================ */
+
+    const sidebar = $("#sidebar");
+    const mobileOverlay = $("#mobileOverlay");
+
+    function openMobileSidebar() {
+      sidebar.classList.add("open");
+      mobileOverlay.classList.add("open");
+      mobileOverlay.setAttribute("aria-hidden", "false");
+    }
+
+    function closeMobileSidebar() {
+      sidebar.classList.remove("open");
+      mobileOverlay.classList.remove("open");
+      mobileOverlay.setAttribute("aria-hidden", "true");
+    }
+
+    $("#menuButton").addEventListener("click", openMobileSidebar);
+    mobileOverlay.addEventListener("click", closeMobileSidebar);
+
+    /* ================================================================
+       Dashboard schedule
+       ================================================================ */
+
+    function formatTime(time) {
+      const [hours, minutes] = time.split(":").map(Number);
+      const suffix = hours >= 12 ? "PM" : "AM";
+      const displayHour = hours % 12 || 12;
+      return `${displayHour}:${String(minutes).padStart(2, "0")} ${suffix}`;
+    }
+
+    function statusBadge(status) {
+      const styles = {
+        Confirmed: "bg-blue-50 text-blue-700",
+        "Checked in": "bg-emerald-50 text-emerald-700",
+        Completed: "bg-slate-100 text-slate-600",
+        Cancelled: "bg-red-50 text-red-700"
+      };
+
+      return `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${styles[status] || "bg-slate-100 text-slate-600"}">
+          <span class="status-dot ${status === "Checked in" ? "bg-emerald-500" : status === "Confirmed" ? "bg-blue-500" : "bg-slate-400"}"></span>
+          ${status}
+        </span>
+      `;
+    }
+
+    function initials(name) {
+      return name
+        .split(" ")
+        .map(part => part[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+    }
+
+    function renderDashboardSchedule() {
+      const container = $("#dashboardSchedule");
+
+      const todaysAppointments = state.appointments
+        .filter(item => item.date === "2026-09-07")
+        .sort((a, b) => a.time.localeCompare(b.time))
+        .slice(0, 5);
+
+      container.innerHTML = todaysAppointments.map(item => `
+        <button
+          class="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-100 hover:border-clinical-100 hover:bg-clinical-50/40 text-left transition"
+          onclick="showPatientByName('${item.patient.replace(/'/g, "\\'")}')"
+        >
+          <div class="w-11 text-center flex-shrink-0">
+            <p class="text-xs font-bold text-clinical-700">${formatTime(item.time).split(" ")[0]}</p>
+            <p class="text-[9px] text-slate-400">${formatTime(item.time).split(" ")[1]}</p>
+          </div>
+
+          <div class="h-9 w-px bg-slate-200"></div>
+
+          <div class="avatar w-9 h-9 bg-slate-100 text-slate-600 text-[10px]">
+            ${initials(item.patient)}
+          </div>
+
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-bold text-slate-800 truncate">${item.patient}</p>
+            <p class="text-[10px] text-slate-400 truncate">${item.department}</p>
+          </div>
+
+          <i class="fa-solid fa-chevron-right text-[10px] text-slate-300"></i>
+        </button>
+      `).join("");
+    }
+
+    function renderUpcomingTable() {
+      const tbody = $("#upcomingTable");
+
+      const upcoming = state.appointments
+        .filter(item => item.date >= "2026-09-07")
+        .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
+        .slice(0, 6);
+
+      tbody.innerHTML = upcoming.map(item => `
+        <tr class="hover:bg-slate-50/70">
+          <td class="px-5 py-4">
+            <div class="flex items-center gap-3">
+              <div class="avatar w-8 h-8 bg-clinical-50 text-clinical-700 text-[10px]">${initials(item.patient)}</div>
+              <span class="font-semibold text-slate-700">${item.patient}</span>
+            </div>
+          </td>
+          <td class="px-5 py-4 text-slate-500">${item.department}</td>
+          <td class="px-5 py-4 text-slate-500">${item.doctor}</td>
+          <td class="px-5 py-4 font-semibold text-slate-700">${formatTime(item.time)}</td>
+          <td class="px-5 py-4">${statusBadge(item.status)}</td>
+        </tr>
+      `).join("");
+    }
+
+    renderDashboardSchedule();
+    renderUpcomingTable();
+
+    /* ================================================================
+       Patient directory
+       ================================================================ */
+
+    function renderPatients() {
+      const search = ($("#patientSearch")?.value || "").toLowerCase().trim();
+      const status = $("#statusFilter")?.value || "all";
+
+      const filtered = state.patients.filter(patient => {
+        const matchesSearch =
+          !search ||
+          patient.name.toLowerCase().includes(search) ||
+          patient.id.toLowerCase().includes(search) ||
+          patient.condition.toLowerCase().includes(search) ||
+          patient.status.toLowerCase().includes(search);
+
+        const matchesStatus = status === "all" || patient.status === status;
+
+        return matchesSearch && matchesStatus;
+      });
+
+      $("#patientTable").innerHTML = filtered.map(patient => {
+        const statusClasses = {
+          Stable: "bg-emerald-50 text-emerald-700",
+          Monitoring: "bg-amber-50 text-amber-700",
+          Critical: "bg-red-50 text-red-700"
+        };
+
+        return `
+          <tr class="hover:bg-slate-50/70">
+            <td class="px-5 py-4">
+              <div class="flex items-center gap-3">
+                <div class="avatar w-9 h-9 bg-clinical-50 text-clinical-700 text-xs">
+                  ${initials(patient.name)}
+                </div>
+                <div>
+                  <p class="font-bold text-slate-700">${patient.name}</p>
+                  <p class="text-[10px] text-slate-400">${patient.id}</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-5 py-4 text-slate-600">${patient.age}</td>
+            <td class="px-5 py-4">
+              <p class="font-semibold text-slate-700">${patient.condition}</p>
+              <p class="text-[10px] text-slate-400 max-w-[250px] truncate">${patient.detail}</p>
+            </td>
+            <td class="px-5 py-4 text-slate-500">${patient.lastVisit}</td>
+            <td class="px-5 py-4">
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${statusClasses[patient.status]}">
+                ${patient.status}
+              </span>
+            </td>
+            <td class="px-5 py-4 text-right">
+              <button
+                class="view-patient px-3 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-clinical-700 hover:bg-clinical-50 hover:border-clinical-200"
+                data-patient-id="${patient.id}"
+              >
+                View Details
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      $("#patientCount").textContent =
+        `Showing ${filtered.length} of ${state.patients.length} patients`;
+
+      $$(".view-patient").forEach(button => {
+        button.addEventListener("click", () => openPatientModal(button.dataset.patientId));
+      });
+    }
+
+    $("#patientSearch").addEventListener("input", renderPatients);
+    $("#statusFilter").addEventListener("change", renderPatients);
+
+    $("#globalSearch").addEventListener("input", event => {
+      const value = event.target.value.trim();
+
+      if (value) {
+        navigate("patients");
+        $("#patientSearch").value = value;
+        renderPatients();
+      }
+    });
+
+    renderPatients();
+
+    function showPatientByName(name) {
+      const patient = state.patients.find(p => p.name === name);
+
+      if (patient) {
+        openPatientModal(patient.id);
+      } else {
+        showToast("Patient not found", "The selected patient is not in the current directory.", "error");
+      }
+    }
+
+    window.showPatientByName = showPatientByName;
+
+    /* ================================================================
+       Patient modal
+       ================================================================ */
+
+    const patientModal = $("#patientModal");
+
+    function openPatientModal(patientId) {
+      const patient = state.patients.find(item => item.id === patientId);
+      if (!patient) return;
+
+      state.selectedPatient = patient;
+
+      $("#patientModalTitle").textContent = patient.name;
+      $("#modalPatientId").textContent = patient.id;
+      $("#modalAvatar").textContent = initials(patient.name);
+      $("#modalAge").textContent = patient.age;
+      $("#modalSex").textContent = patient.sex;
+      $("#modalBlood").textContent = patient.blood;
+      $("#modalStatus").textContent = patient.status;
+      $("#modalCondition").textContent = patient.condition;
+      $("#modalConditionDetail").textContent = patient.detail;
+      $("#modalHistory").textContent = patient.history;
+
+      $("#modalMedications").innerHTML = patient.medications
+        .map(med => `
+          <span class="text-xs px-3 py-1.5 rounded-full bg-clinical-50 text-clinical-700 border border-clinical-100">
+            ${med}
+          </span>
+        `)
+        .join("");
+
+      patientModal.classList.add("open");
+      document.body.classList.add("overflow-hidden");
+
+      setTimeout(() => $("#closePatientModal").focus(), 50);
+    }
+
+    function closePatientModal() {
+      patientModal.classList.remove("open");
+      document.body.classList.remove("overflow-hidden");
+      state.selectedPatient = null;
+    }
+
+    $("#closePatientModal").addEventListener("click", closePatientModal);
+
+    patientModal.addEventListener("click", event => {
+      if (event.target === patientModal) closePatientModal();
+    });
+
+    $("#modalClinicalNote").addEventListener("click", () => {
+      closePatientModal();
+      navigate("clinical-notes");
+    });
+
+    $("#modalAppointment").addEventListener("click", () => {
+      if (state.selectedPatient) {
+        $("#appointmentPatient").value = state.selectedPatient.name;
+      }
+      closePatientModal();
+      navigate("appointments");
+    });
+
+    /* ================================================================
+       Register patient modal
+       ================================================================ */
+
+    const registerModal = $("#registerModal");
+
+    function openRegisterModal() {
+      registerModal.classList.add("open");
+      document.body.classList.add("overflow-hidden");
+
+      setTimeout(() => $("#newPatientName").focus(), 50);
+    }
+
+    function closeRegisterModal() {
+      registerModal.classList.remove("open");
+      document.body.classList.remove("overflow-hidden");
+    }
+
+    $("#addPatientButton").addEventListener("click", openRegisterModal);
+    $("#closeRegisterModal").addEventListener("click", closeRegisterModal);
+    $("#cancelRegister").addEventListener("click", closeRegisterModal);
+
+    registerModal.addEventListener("click", event => {
+      if (event.target === registerModal) closeRegisterModal();
+    });
+
+    $("#registerForm").addEventListener("submit", event => {
+      event.preventDefault();
+
+      const name = $("#newPatientName").value.trim();
+      const age = Number($("#newPatientAge").value);
+      const sex = $("#newPatientSex").value;
+      const condition = $("#newPatientCondition").value.trim();
+
+      if (!name || !age && age !== 0 || !sex || !condition) {
+        showToast(
+          "Incomplete information",
+          "Please complete all required patient fields.",
+          "error"
+        );
+        return;
+      }
+
+      const newId = `MRN-${Math.floor(10000 + Math.random() * 89999)}`;
+
+      state.patients.unshift({
+        id: newId,
+        name,
+        age,
+        sex,
+        blood: "Not recorded",
+        condition,
+        status: "Monitoring",
+        lastVisit: "New registration",
+        detail: "Newly registered patient; clinical assessment pending.",
+        history: "No previous history documented in this simulated record.",
+        medications: ["No medications recorded"]
+      });
+
+      $("#registerForm").reset();
+      closeRegisterModal();
+      renderPatients();
+
+      showToast(
+        "Patient registered",
+        `${name} was added to the patient directory.`
+      );
+    });
+
+    /* ================================================================
+       Appointment scheduling
+       ================================================================ */
+
+    const appointmentForm = $("#appointmentForm");
+
+    // Prevent selecting dates in the past.
+    const todayISO = "2026-09-07";
+    $("#appointmentDate").min = todayISO;
+
+    appointmentForm.addEventListener("submit", event => {
+      event.preventDefault();
+
+      const patient = $("#appointmentPatient").value.trim();
+      const department = $("#department").value;
+      const doctor = $("#doctor").value;
+      const date = $("#appointmentDate").value;
+      const time = $("#appointmentTime").value;
+      const reason = $("#appointmentReason").value.trim();
+
+      let valid = true;
+
+      $$(".field-error", appointmentForm).forEach(error => {
+        error.classList.add("hidden");
+        error.textContent = "";
+      });
+
+      const requiredFields = [
+        {
+          element: $("#appointmentPatient"),
+          valid: patient,
+          message: "Patient name is required."
+        },
+        {
+          element: $("#department"),
+          valid: department,
+          message: "Please select a department."
+        },
+        {
+          element: $("#doctor"),
+          valid: doctor,
+          message: "Please select a physician."
+        },
+        {
+          element: $("#appointmentDate"),
+          valid: date,
+          message: "Please choose an appointment date."
+        },
+        {
+          element: $("#appointmentTime"),
+          valid: time,
+          message: "Please choose an appointment time."
         }
+      ];
 
-        input[type="range"] {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 6px;
-            background: #334155;
-            border-radius: 3px;
-            outline: none;
+      requiredFields.forEach(field => {
+        if (!field.valid) {
+          valid = false;
+          field.element.classList.add("border-red-300");
+
+          const error = field.element.parentElement.querySelector(".field-error");
+
+          if (error) {
+            error.textContent = field.message;
+            error.classList.remove("hidden");
+          }
+        } else {
+          field.element.classList.remove("border-red-300");
         }
+      });
 
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            cursor: pointer;
+      if (date && date < todayISO) {
+        valid = false;
+        $("#appointmentDate").classList.add("border-red-300");
+        showToast(
+          "Invalid date",
+          "Please select today or a future appointment date.",
+          "error"
+        );
+      }
+
+      if (!valid) {
+        if (!date || !time || !patient || !department || !doctor) {
+          showToast(
+            "Check appointment details",
+            "Please complete all required fields before submitting.",
+            "error"
+          );
         }
+        return;
+      }
 
-        #calciumRange::-webkit-slider-thumb { background: var(--accent-ca); }
-        #atpRange::-webkit-slider-thumb { background: var(--accent-atp); }
+      const newAppointment = {
+        id: Date.now(),
+        patient,
+        department,
+        doctor,
+        date,
+        time,
+        status: "Confirmed",
+        reason: reason || "General consultation"
+      };
 
-        .dashboard-pane {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+      state.appointments.push(newAppointment);
+
+      appointmentForm.reset();
+      $("#appointmentDate").min = todayISO;
+
+      renderAppointments();
+      renderDashboardSchedule();
+      renderUpcomingTable();
+
+      showToast(
+        "Appointment confirmed",
+        `${patient} is scheduled for ${formatTime(time)} on ${date}.`
+      );
+    });
+
+    $$("#appointmentForm input, #appointmentForm select").forEach(input => {
+      input.addEventListener("input", () => {
+        input.classList.remove("border-red-300");
+      });
+    });
+
+    function renderAppointments() {
+      const container = $("#appointmentSchedule");
+
+      const sorted = [...state.appointments]
+        .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+
+      container.innerHTML = sorted.map(item => `
+        <article class="border border-slate-100 rounded-xl p-4 hover:border-clinical-100 hover:bg-clinical-50/20 transition">
+          <div class="flex flex-col md:flex-row md:items-center gap-4">
+            <div class="md:w-24 flex-shrink-0">
+              <p class="text-sm font-bold text-clinical-700">${formatTime(item.time)}</p>
+              <p class="text-[11px] text-slate-400 mt-1">${formatAppointmentDate(item.date)}</p>
+            </div>
+
+            <div class="hidden md:block h-10 w-px bg-slate-200"></div>
+
+            <div class="avatar w-10 h-10 bg-slate-100 text-slate-600 text-xs">
+              ${initials(item.patient)}
+            </div>
+
+            <div class="flex-1 min-w-0">
+              <p class="font-bold text-slate-800">${item.patient}</p>
+              <p class="text-xs text-slate-500 mt-0.5">${item.department} · ${item.doctor}</p>
+              <p class="text-[11px] text-slate-400 mt-1">${item.reason}</p>
+            </div>
+
+            <div class="flex items-center justify-between md:justify-end gap-3">
+              ${statusBadge(item.status)}
+              <button
+                class="appointment-remove w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50"
+                data-id="${item.id}"
+                aria-label="Remove appointment for ${item.patient}"
+              >
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </div>
+          </div>
+        </article>
+      `).join("");
+
+      $$(".appointment-remove").forEach(button => {
+        button.addEventListener("click", () => {
+          const id = Number(button.dataset.id);
+          const index = state.appointments.findIndex(item => item.id === id);
+
+          if (index === -1) return;
+
+          const removed = state.appointments[index];
+          state.appointments.splice(index, 1);
+
+          renderAppointments();
+          renderDashboardSchedule();
+          renderUpcomingTable();
+
+          showToast(
+            "Appointment removed",
+            `${removed.patient}'s appointment has been removed.`,
+            "info"
+          );
+        });
+      });
+    }
+
+    function formatAppointmentDate(date) {
+      const dateObj = new Date(`${date}T12:00:00`);
+      return dateObj.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      });
+    }
+
+    renderAppointments();
+
+    $("#quickAppointment").addEventListener("click", () => {
+      navigate("appointments");
+      setTimeout(() => $("#appointmentPatient").focus(), 100);
+    });
+
+    /* ================================================================
+       Chart.js
+       ================================================================ */
+
+    const chartContext = $("#analyticsChart").getContext("2d");
+
+    const chartData = {
+      week: {
+        labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        data: [64, 71, 68, 82, 76, 91, 84]
+      },
+      month: {
+        labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+        data: [412, 468, 451, 527]
+      }
+    };
+
+    const analyticsChart = new Chart(chartContext, {
+      type: "line",
+      data: {
+        labels: chartData.week.labels,
+        datasets: [
+          {
+            label: "Patient Encounters",
+            data: chartData.week.data,
+            borderColor: "#2394a7",
+            backgroundColor: "rgba(35, 148, 167, 0.10)",
+            borderWidth: 3,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: "#ffffff",
+            pointBorderColor: "#2394a7",
+            tension: 0.35,
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          intersect: false,
+          mode: "index"
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: "#173f4b",
+            titleColor: "#ffffff",
+            bodyColor: "#d9edf0",
+            padding: 12,
+            displayColors: false,
+            callbacks: {
+              label: context => `${context.parsed.y} patient encounters`
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            grid: {
+              color: "rgba(148, 163, 184, 0.13)"
+            },
+            border: {
+              display: false
+            },
+            ticks: {
+              color: "#94a3b8",
+              font: {
+                size: 11
+              }
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            },
+            border: {
+              display: false
+            },
+            ticks: {
+              color: "#94a3b8",
+              font: {
+                size: 11
+              }
+            }
+          }
         }
+      }
+    });
 
-        .status-badge {
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            line-height: 1.4;
-            border-left: 4px solid #64748b;
-            background: rgba(15, 23, 42, 0.3);
-        }
+    $$(".chart-range").forEach(button => {
+      button.addEventListener("click", () => {
+        const range = button.dataset.range;
 
-        .status-badge.active-state {
-            border-left-color: var(--accent-myosin);
-        }
+        $$(".chart-range").forEach(item => {
+          item.classList.remove("bg-white", "text-slate-700", "font-semibold", "shadow-sm");
+          item.classList.add("text-slate-500", "font-medium");
+        });
 
-        .legend {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;font-size: 0.8rem;border-top: 1px solid var(--border-color);padding-top: 15px;}.legend-item {display: flex;align-items: center;gap: 8px;}.color-dot {width: 12px;height: 12px;border-radius: 3px;flex-shrink: 0;}Sarcomere Physiology & KinematicsHigh-fidelity medical visualization of the sliding filament mechanism and cross-bridge cycling dynamics.M-LINE (CENTER)Z-DISCZ-DISCSarcoplasmic [Ca²⁺] 0%Intracellular [ATP] 50%Physiological MetricsCurrent State: Resting State (No interaction). Raise Calcium concentration to begin cross-bridge activation.Thin Filament (Actin Helix / Tropomyosin Strand)Thick Filament (Myosin Bundle Core)Z-Disc Boundary MarkersCalcium Ions (Tropomyosin conformational shift triggers)const root = document.documentElement;const caRange = document.getElementById('calciumRange');const atpRange = document.getElementById('atpRange');const caVal = document.getElementById('caVal');const atpVal = document.getElementById('atpVal');const stateBadge = document.getElementById('stateBadge');let runtime = {ca: 0,atp: 0.5,ticker: 0,currentWidth: 85};caRange.addEventListener('input', (e) => {runtime.ca = e.target.value / 100;caVal.innerText = e.target.value + '%';});atpRange.addEventListener('input', (e) => {runtime.atp = e.target.value / 100;atpVal.innerText = e.target.value + '%';});function simulationStep() {if (runtime.ca < 0.2) {stateBadge.className = "status-badge";stateBadge.innerHTML = <strong>Resting Complex:</strong> Low Ca²⁺ levels keep troponin/tropomyosin blocks intact. Myosin heads cannot attach.;root.style.setProperty('--tropomyosin-color', '#38bdf8');root.style.setProperty('--myosin-angle', '0deg');runtime.currentWidth += (85 - runtime.currentWidth) * 0.05;} else if (runtime.atp < 0.15) {stateBadge.className = "status-badge active-state";stateBadge.innerHTML = <strong>Rigor Complex (Rigor Mortis):</strong> Myosin remains locked to actin filaments due to complete depletion of ATP.;root.style.setProperty('--myosin-angle', '-15deg');} else {stateBadge.className = "status-badge active-state";stateBadge.innerHTML = <strong>Active Cross-Bridge Cycling:</strong> Ca²⁺ uncovers binding sites. Myosin actively hydrolyzes ATP to generate directional tension towards center.;root.style.setProperty('--tropomyosin-color', '#475569');runtime.ticker += 0.05 * runtime.atp * runtime.ca;let wave = Math.sin(runtime.ticker);let headAngle = Math.sin(runtime.ticker * 2) * 20;root.style.setProperty('--myosin-angle', ${headAngle}deg);let targetWidth = 85 - (Math.max(0, wave) * 25 * runtime.ca);runtime.currentWidth += (targetWidth - runtime.currentWidth) * 0.05;}root.style.setProperty('--sarcomere-width', ${runtime.currentWidth}%);requestAnimationFrame(simulationStep);} //Initialize Runtime Engine InstantlysimulationStep();
+        button.classList.remove("text-slate-500", "font-medium");
+        button.classList.add("bg-white", "text-slate-700", "font-semibold", "shadow-sm");
+
+        analyticsChart.data.labels = chartData[range].labels;
+        analyticsChart.data.datasets[0].data = chartData[range].data;
+        analyticsChart.update();
+      });
+    });
+
+    /* ================================================================
+       Physiology interaction
+       ================================================================ */
+
+    const physiologyDescriptions = {
+      actin:
+        "The thin filament contains actin and associated regulatory proteins. During contraction, myosin heads interact with exposed binding sites on actin to generate force.",
+      myosin:
+        "The thick filament is primarily composed of myosin. Myosin heads form cross-bridges with actin and use ATP-dependent cycling to produce mechanical force.",
+      zdisc:
+        "Z discs mark the boundaries of an individual sarcomere. Thin filaments are anchored to the Z discs, allowing changes in filament overlap to shorten the contractile unit.",
+      titin:
+        "Titin is a large elastic protein extending from the Z disc toward the thick filament. It contributes to structural alignment and passive elasticity."
+    };
+
+    $$(".physiology-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        $$(".physiology-tab").forEach(item => {
+          item.classList.remove("bg-clinical-50", "border", "border-clinical-100");
+        });
+
+        tab.classList.add("bg-clinical-50", "border", "border-clinical-100");
+
+        $("#physiologyDescription").textContent =
+          physiologyDescriptions[tab.dataset.topic];
+      });
+    });
+
+    /* ================================================================
+       Clinical notes
+       ================================================================ */
+
+    $$(".editor-tool").forEach(tool => {
+      tool.addEventListener("click", () => {
+        document.execCommand(tool.dataset.command, false, null);
+      });
+    });
+
+    $("#saveNoteButton").addEventListener("click", () => {
+      showToast(
+        "Clinical note saved",
+        "Your note has been saved to the simulated EHR workspace."
+      );
+    });
+
+    $("#signNoteButton").addEventListener("click", () => {
+      showToast(
+        "Signature workflow",
+        "The note is ready for electronic signature in this demonstration.",
+        "info"
+      );
+    });
+
+    /* ================================================================
+       Notifications / profile
+       ================================================================ */
+
+    $("#notificationButton").addEventListener("click", () => {
+      showToast(
+        "Clinical notifications",
+        "5 laboratory results require review and 2 notes require signature.",
+        "info"
+      );
+    });
+
+    $("#profileButton").addEventListener("click", () => {
+      showToast(
+        "Dr. Rivera",
+        "Attending Physician · Clinical Workspace",
+        "info"
+      );
+    });
+
+    /* ================================================================
+       Toast system
+       ================================================================ */
+
+    let toastTimer = null;
+
+    function showToast(title, message, type = "success") {
+      const toast = $("#toast");
+      const icon = $("#toastIcon");
+
+      $("#toastTitle").textContent = title;
+      $("#toastMessage").textContent = message;
+
+      if (type === "error") {
+        icon.className =
+          "w-9 h-9 rounded-lg bg-red-50 text-red-600 flex items-center justify-center flex-shrink-0";
+        icon.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i>';
+      } else if (type === "info") {
+        icon.className =
+          "w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0";
+        icon.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+      } else {
+        icon.className =
+          "w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0";
+        icon.innerHTML = '<i class="fa-solid fa-check"></i>';
+      }
+
+      toast.classList.add("show");
+
+      clearTimeout(toastTimer);
+
+      toastTimer = setTimeout(() => {
+        toast.classList.remove("show");
+      }, 4500);
+    }
+
+    $("#closeToast").addEventListener("click", () => {
+      $("#toast").classList.remove("show");
+      clearTimeout(toastTimer);
+    });
+
+    /* ================================================================
+       Keyboard accessibility
+       ================================================================ */
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        closePatientModal();
+        closeRegisterModal();
+        closeMobileSidebar();
+        $("#toast").classList.remove("show");
+      }
+    });
+
+    /* ================================================================
+       Initial state
+       ================================================================ */
+
+    navigate("dashboard");
+  </script>
+</body>
+</html>
